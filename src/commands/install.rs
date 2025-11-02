@@ -1,15 +1,19 @@
 use std::fs;
 use std::path::PathBuf;
+use crate::version;
 
 /// Install a specific PHP version
 pub fn run(version: String) {
-    let resolved = match resolve_version(&version) {
+    println!("Resolving version '{}'...", version);
+
+    let resolved = match version::resolve_version(&version) {
         Some(v) => v,
         None => {
             eprintln!(
-                "Invalid version format: '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH",
+                "Error: Could not resolve version '{}'. Version not found or invalid format.",
                 version
             );
+            eprintln!("Expected format: MAJOR (e.g., '8'), MAJOR.MINOR (e.g., '8.2'), or MAJOR.MINOR.PATCH (e.g., '8.3.9')");
             return;
         }
     };
@@ -57,26 +61,6 @@ pub fn run(version: String) {
     }
 
     println!("Successfully installed PHP {}", resolved);
-}
-
-/// Resolve user input into a full version string
-/// - "8"   -> "8.x"
-/// - "8.2" -> "8.2.x"
-/// - "8.3.9" -> "8.3.9"
-fn resolve_version(input: &str) -> Option<String> {
-    let parts: Vec<&str> = input.split('.').collect();
-
-    // Validate all parts are numeric
-    if !parts.iter().all(|p| p.parse::<u32>().is_ok()) {
-        return None;
-    }
-
-    match parts.len() {
-        1 => Some(format!("{}.x", parts[0])),
-        2 => Some(format!("{}.{}.x", parts[0], parts[1])),
-        3 => Some(input.to_string()),
-        _ => None,
-    }
 }
 
 /// Get phpz home directory (~/.phpz or %USERPROFILE%\.phpz)
