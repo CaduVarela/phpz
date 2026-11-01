@@ -48,8 +48,8 @@ pub enum Commands {
     },
     /// Remove an installed version (exact version, as shown by 'phpz list')
     Uninstall { version: String },
-    /// Switch the active PHP version
-    Use { version: String },
+    /// Switch the active PHP version, or the one this folder pins when none is given
+    Use { version: Option<String> },
     /// List installed versions, or the ones available for download with --remote
     List {
         /// List versions available for download instead of installed ones
