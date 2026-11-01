@@ -49,7 +49,20 @@ fn world() -> World {
     World { home, work, shim }
 }
 
+/// Runs the shim, trying again when a script written by a parallel test is still busy.
 fn php(world: &World, directory: &Path, arguments: &[&str]) -> Output {
+    let mut output = run_shim(world, directory, arguments);
+    for _ in 0..10 {
+        if !String::from_utf8_lossy(&output.stderr).contains("Text file busy") {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        output = run_shim(world, directory, arguments);
+    }
+    output
+}
+
+fn run_shim(world: &World, directory: &Path, arguments: &[&str]) -> Output {
     Command::new(&world.shim)
         .args(arguments)
         .env("PHPZ_HOME", world.home.path())
@@ -248,11 +261,13 @@ fn a_project_that_only_pins_a_version_keeps_the_versions_own_ini() {
     prepare_extension_version(world.home.path());
     fs::write(world.work.path().join(".php-version"), "8.3\n").unwrap();
 
-    let lines = out(&php(&world, world.work.path(), &[]));
+    let output = php(&world, world.work.path(), &[]);
+    let lines = out(&output);
     assert!(
         lines.contains("PHPRC=") && lines.contains("/versions/8.3.32"),
-        "{}",
-        lines
+        "{} {}",
+        lines,
+        err(&output)
     );
     assert!(!lines.contains("/projects/"), "{}", lines);
 }
