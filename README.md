@@ -36,11 +36,13 @@ cargo build --release
 cp target/release/phpz ~/.local/bin/   # or any directory on your PATH
 ```
 
-Then add this line to your `~/.bashrc` or `~/.zshrc` so the active PHP version is used by your shell:
+Then let phpz put the active PHP version on your `PATH`:
 
 ```bash
-eval "$(phpz env)"
+phpz setup
 ```
+
+This adds a small marked block to your `~/.bashrc` (bash) or `~/.zshrc` (zsh), and running it twice is harmless. phpz also offers to do it right after your first `phpz install`, when it runs in an interactive terminal. Open a new terminal afterwards. Other shells are not supported yet: add `export PATH="$HOME/.phpz/current/bin:$PATH"` to your shell profile by hand.
 
 Optionally enable shell completion (bash example):
 
@@ -60,6 +62,7 @@ phpz uninstall 8.3.32   # remove an installed version (exact version, not the ac
 phpz use 8.3            # switch the active version
 phpz current            # show the active version
 phpz reset              # deactivate phpz's PHP (removes the "current" link)
+phpz setup              # add phpz to your PATH (bash and zsh)
 
 phpz config get memory_limit
 phpz config set memory_limit 512M

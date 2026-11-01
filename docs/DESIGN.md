@@ -12,7 +12,7 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 
 | Area | Linux | macOS | Windows |
 |---|---|---|---|
-| install, uninstall, list --remote, use, list, current, env, reset, completions | done | untested | not implemented |
+| install, uninstall, list --remote, use, list, current, env, reset, setup, completions | done | untested | not implemented |
 | config get, set, remove | done | untested | not implemented |
 | ext enable, disable | exits with an explanatory error | same | same |
 
@@ -77,13 +77,21 @@ The static binary has its `php.ini` search path compiled in (`/usr/local/etc/php
 
 ### Environment strategy
 
-A child process cannot change its parent shell's environment, so phpz cannot edit `PATH` by itself. Instead it prints shell code, like nvm does, and the user evaluates it once in the shell profile:
+A child process cannot change its parent shell's environment, so phpz cannot edit `PATH` by itself. A one-time change to the shell profile is unavoidable, and phpz does it for the user:
 
-```bash
-eval "$(phpz env)"
-```
+- `phpz setup` appends a marked block to `~/.bashrc` or `~/.zshrc` (`$ZDOTDIR` is honored):
 
-`PATH` points to the stable `~/.phpz/current/bin`, so `phpz use` takes effect immediately in every open shell without re-evaluating anything.
+  ```bash
+  # >>> phpz >>>
+  export PATH="$HOME/.phpz/current/bin:$PATH"
+  # <<< phpz <<<
+  ```
+
+  It is idempotent (the start marker is checked first) and writes the file in place, so symlinked dotfiles keep working. The block exports the path directly instead of running `eval "$(phpz env)"`, which avoids starting a process on every new shell and cannot fail when `phpz` is missing from `PATH`.
+- After a successful `phpz install`, phpz offers to run the same setup. The question is asked only once (recorded in `~/.phpz/.setup-prompted`), only when stdin and stderr are terminals, and not when `PATH` is already configured. Scripts and CI are never prompted.
+- `phpz env` still prints the export line for shells that `setup` does not support.
+
+`PATH` points to the stable `~/.phpz/current/bin`, so `phpz use` takes effect immediately in every open shell without re-evaluating anything. Only bash and zsh are supported; fish and PowerShell are not.
 
 `reset` does not clean other PHP installations out of `PATH`. It only deactivates phpz's own version.
 
@@ -136,6 +144,7 @@ src/
   paths.rs           ~/.phpz, versions directory, current link
   version.rs         version resolution and download URLs
   installed.rs       installed versions, active version, active php.ini path
+  shell.rs           shell profile detection and the PATH block used by setup
   ini.rs             line-preserving php.ini editor
   commands/          one module per subcommand
   <module>/tests.rs  unit tests of <module>.rs (private items stay reachable)
