@@ -3,8 +3,10 @@ use std::io::{Read, Write};
 use std::path::Path;
 
 use flate2::read::GzDecoder;
+use sha2::{Digest, Sha256};
 use tar::Archive;
 
+use crate::version::Build;
 use crate::{paths, shell, version};
 
 const DEFAULT_INI: &str = "\
@@ -26,7 +28,8 @@ pub fn run(version: String) {
 
 fn install(requested_version: &str) -> Result<(), String> {
     println!("Resolving version '{}'...", requested_version);
-    let resolved_version = version::resolve_version(requested_version)?;
+    let build = version::resolve_build(requested_version)?;
+    let resolved_version = build.version_name();
 
     let versions_directory = paths::versions_directory()?;
     let final_directory = versions_directory.join(&resolved_version);
@@ -48,7 +51,7 @@ fn install(requested_version: &str) -> Result<(), String> {
         .map_err(|error| format!("creating temporary directory: {}", error))?;
 
     println!("Installing PHP {}", resolved_version);
-    let result = populate(&resolved_version, &temporary_directory).and_then(|_| {
+    let result = populate(&build, &temporary_directory).and_then(|_| {
         fs::rename(&temporary_directory, &final_directory)
             .map_err(|error| format!("finalizing installation: {}", error))
     });
@@ -68,20 +71,14 @@ fn install(requested_version: &str) -> Result<(), String> {
 ///   bin/php       wrapper script that points PHP at this version's php.ini
 ///   php.ini       configuration
 ///   conf.d/       additional ini files
-fn populate(resolved_version: &str, directory: &Path) -> Result<(), String> {
-    let download_url = version::get_download_url(resolved_version).ok_or_else(|| {
-        "unsupported platform (Windows support is not implemented yet)".to_string()
-    })?;
-
+fn populate(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.tar.gz");
-    download(&download_url, &archive_path)?;
+    download(&build.url, &archive_path, build.sha256.as_deref())?;
 
     let libexec_directory = directory.join("libexec");
     fs::create_dir_all(&libexec_directory).map_err(|error| error.to_string())?;
     extract_php_binary(&archive_path, &libexec_directory.join("php"))?;
     let _ = fs::remove_file(&archive_path);
-
-    // TODO: verify integrity (static-php does not publish checksums; consider pinning hashes)
 
     let bin_directory = directory.join("bin");
     fs::create_dir_all(&bin_directory).map_err(|error| error.to_string())?;
@@ -93,7 +90,8 @@ fn populate(resolved_version: &str, directory: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn download(url: &str, destination: &Path) -> Result<(), String> {
+/// Download `url` to `destination`, checking the SHA-256 when one is known.
+fn download(url: &str, destination: &Path, expected_sha256: Option<&str>) -> Result<(), String> {
     println!("Downloading {}", url);
     let mut response = reqwest::blocking::get(url)
         .and_then(|response| response.error_for_status())
@@ -104,6 +102,7 @@ fn download(url: &str, destination: &Path) -> Result<(), String> {
         .map_err(|error| format!("creating {}: {}", destination.display(), error))?;
     let mut buffer = [0u8; 64 * 1024];
     let mut downloaded_bytes: u64 = 0;
+    let mut hasher = Sha256::new();
 
     loop {
         let bytes_read = response
@@ -114,6 +113,7 @@ fn download(url: &str, destination: &Path) -> Result<(), String> {
         }
         file.write_all(&buffer[..bytes_read])
             .map_err(|error| error.to_string())?;
+        hasher.update(&buffer[..bytes_read]);
         downloaded_bytes += bytes_read as u64;
 
         let megabytes = downloaded_bytes as f64 / 1e6;
@@ -134,7 +134,26 @@ fn download(url: &str, destination: &Path) -> Result<(), String> {
             ));
         }
     }
+
+    match expected_sha256 {
+        Some(expected) => {
+            check_sha256(&format!("{:x}", hasher.finalize()), expected)?;
+            println!("Verified SHA-256 checksum");
+        }
+        None => println!("Note: no checksum is published for this build, so it was not verified."),
+    }
     Ok(())
+}
+
+fn check_sha256(actual: &str, expected: &str) -> Result<(), String> {
+    if actual.eq_ignore_ascii_case(expected) {
+        Ok(())
+    } else {
+        Err(format!(
+            "checksum mismatch (expected {}, got {}). The download was discarded.",
+            expected, actual
+        ))
+    }
 }
 
 /// Extract the `php` executable from the archive to `destination`.
@@ -188,3 +207,6 @@ exec \"$DIR/libexec/php\" \"$@\"
     fs::write(path, script).map_err(|error| format!("writing wrapper: {}", error))?;
     set_executable(path)
 }
+
+#[cfg(test)]
+mod tests;

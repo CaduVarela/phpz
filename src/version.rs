@@ -1,30 +1,24 @@
-use serde::Deserialize;
-
-const INDEX_URL: &str = "https://dl.static-php.dev/static-php-cli/common/?format=json";
-const BASE_URL: &str = "https://dl.static-php.dev/static-php-cli/common";
-
-#[derive(Debug, Deserialize)]
-struct IndexEntry {
-    name: String,
-    is_dir: bool,
-}
+mod static_php;
+mod windows_php;
 
 /// (major, minor, patch)
 type Version = (u32, u32, u32);
 
-/// Platform suffix of static-php file names, e.g. "linux-x86_64" (None on Windows for now).
-pub fn platform() -> Option<String> {
-    let operating_system = match std::env::consts::OS {
-        "linux" => "linux",
-        "macos" => "macos",
-        _ => return None,
-    };
-    let architecture = match std::env::consts::ARCH {
-        "x86_64" => "x86_64",
-        "aarch64" => "aarch64",
-        _ => return None,
-    };
-    Some(format!("{}-{}", operating_system, architecture))
+/// A downloadable PHP build.
+#[derive(Debug, Clone)]
+pub struct Build {
+    version: Version,
+    pub url: String,
+    /// Expected SHA-256 as lowercase hex, when the source publishes one.
+    pub sha256: Option<String>,
+}
+
+impl Build {
+    /// "MAJOR.MINOR.PATCH"
+    pub fn version_name(&self) -> String {
+        let (major, minor, patch) = self.version;
+        format!("{}.{}.{}", major, minor, patch)
+    }
 }
 
 fn parse_version(text: &str) -> Option<Version> {
@@ -40,48 +34,34 @@ fn parse_version(text: &str) -> Option<Version> {
     Some(version)
 }
 
-/// All versions that have a CLI build for the current platform, sorted ascending.
-fn available_versions() -> Result<Vec<Version>, String> {
-    let platform = platform().ok_or_else(|| {
-        format!(
-            "unsupported platform: {}-{} (Windows support is not implemented yet)",
-            std::env::consts::OS,
-            std::env::consts::ARCH
-        )
-    })?;
-    let file_suffix = format!("-cli-{}.tar.gz", platform);
-
-    let entries: Vec<IndexEntry> = reqwest::blocking::get(INDEX_URL)
-        .and_then(|response| response.error_for_status())
-        .and_then(|response| response.json())
-        .map_err(|error| format!("failed to fetch version index: {}", error))?;
-
-    let mut versions: Vec<Version> = entries
-        .iter()
-        .filter(|entry| !entry.is_dir)
-        .filter_map(|entry| entry.name.strip_prefix("php-")?.strip_suffix(&file_suffix))
-        .filter_map(parse_version)
-        .collect();
-    versions.sort();
-    versions.dedup();
-    Ok(versions)
+/// Builds for the current platform, one per version, sorted ascending.
+/// Windows uses the official windows.php.net builds, other systems use static-php-cli.
+fn available_builds() -> Result<Vec<Build>, String> {
+    let mut builds = if cfg!(windows) {
+        windows_php::builds()?
+    } else {
+        static_php::builds()?
+    };
+    builds.sort_by_key(|build| build.version);
+    builds.dedup_by_key(|build| build.version);
+    Ok(builds)
 }
 
 /// Versions available for download, as "MAJOR.MINOR.PATCH" strings, sorted ascending.
 pub fn available_version_names() -> Result<Vec<String>, String> {
-    Ok(available_versions()?
-        .into_iter()
-        .map(|(major, minor, patch)| format!("{}.{}.{}", major, minor, patch))
+    Ok(available_builds()?
+        .iter()
+        .map(Build::version_name)
         .collect())
 }
 
-/// Resolve "8", "8.2" or "8.3.9" to the newest matching full version.
-pub fn resolve_version(input: &str) -> Result<String, String> {
-    select_version(&available_versions()?, input)
+/// Resolve "8", "8.2" or "8.3.9" to the newest matching build.
+pub fn resolve_build(input: &str) -> Result<Build, String> {
+    select_build(&available_builds()?, input).cloned()
 }
 
-/// Pick the newest version in `available` that matches `input`.
-fn select_version(available: &[Version], input: &str) -> Result<String, String> {
+/// Pick the newest build in `available` that matches `input`.
+fn select_build<'a>(available: &'a [Build], input: &str) -> Result<&'a Build, String> {
     let invalid_format_message = format!(
         "invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH",
         input
@@ -96,26 +76,14 @@ fn select_version(available: &[Version], input: &str) -> Result<String, String> 
         return Err(invalid_format_message);
     }
 
-    let latest_match = available
+    available
         .iter()
-        .copied()
-        .filter(|&(major, minor, patch)| [major, minor, patch].starts_with(&requested_parts))
-        .max();
-
-    match latest_match {
-        Some((major, minor, patch)) => Ok(format!("{}.{}.{}", major, minor, patch)),
-        None => Err(format!("no PHP build found for version '{}'", input)),
-    }
-}
-
-/// Download URL of the CLI build for `version` (always a full MAJOR.MINOR.PATCH).
-pub fn get_download_url(version: &str) -> Option<String> {
-    Some(format!(
-        "{}/php-{}-cli-{}.tar.gz",
-        BASE_URL,
-        version,
-        platform()?
-    ))
+        .filter(|build| {
+            let (major, minor, patch) = build.version;
+            [major, minor, patch].starts_with(&requested_parts)
+        })
+        .max_by_key(|build| build.version)
+        .ok_or_else(|| format!("no PHP build found for version '{}'", input))
 }
 
 #[cfg(test)]
