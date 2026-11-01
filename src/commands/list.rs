@@ -1,34 +1,26 @@
-use std::fs;
-use crate::paths;
+use crate::installed;
 
+/// List installed versions, marking the active one
 pub fn run() {
-    let versions_directory = match paths::versions_directory() {
-        Ok(directory) => directory,
-        Err(error) => {
-            eprintln!("Error: {}", error);
-            return;
-        }
-    };
+    let result = installed::installed_versions().and_then(|versions| {
+        installed::active_version().map(|active| (versions, active))
+    });
 
-    if !versions_directory.exists() {
-        println!("No versions installed.");
-        return;
-    }
-
-    println!("Installed versions:");
-
-    match fs::read_dir(&versions_directory) {
-        Ok(entries) => {
-            for entry in entries.flatten() {
-                if entry.file_type().map(|file_type| file_type.is_dir()).unwrap_or(false) {
-                    if let Some(name) = entry.file_name().to_str() {
-                        println!("- {}", name);
-                    }
+    match result {
+        Ok((versions, _)) if versions.is_empty() => println!("No versions installed."),
+        Ok((versions, active)) => {
+            println!("Installed versions:");
+            for version in versions {
+                if active.as_deref() == Some(version.as_str()) {
+                    println!("* {} (active)", version);
+                } else {
+                    println!("  {}", version);
                 }
             }
         }
         Err(error) => {
-            eprintln!("Error reading versions directory: {}", error);
+            eprintln!("Error: {}", error);
+            std::process::exit(1);
         }
     }
 }

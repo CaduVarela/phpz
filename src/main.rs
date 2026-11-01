@@ -1,4 +1,5 @@
 mod commands;
+mod installed;
 mod paths;
 mod version;
 
