@@ -87,7 +87,7 @@ A child process cannot change its parent shell's environment, so phpz cannot edi
   # <<< phpz <<<
   ```
 
-  It is idempotent (the start marker is checked first) and writes the file in place, so symlinked dotfiles keep working. The block exports the path directly instead of running `eval "$(phpz env)"`, which avoids starting a process on every new shell and cannot fail when `phpz` is missing from `PATH`.
+  `phpz setup --undo` removes exactly that block (and the blank line `setup` put before it), so a `setup` followed by `--undo` restores the file byte for byte. If the start marker has no matching end marker, it refuses to edit the file. It is idempotent (the start marker is checked first) and writes the file in place, so symlinked dotfiles keep working. The block exports the path directly instead of running `eval "$(phpz env)"`, which avoids starting a process on every new shell and cannot fail when `phpz` is missing from `PATH`.
 - After a successful `phpz install`, phpz offers to run the same setup. The question is asked only once (recorded in `~/.phpz/.setup-prompted`), only when stdin and stderr are terminals, and not when `PATH` is already configured. Scripts and CI are never prompted.
 - `phpz env` still prints the export line for shells that `setup` does not support.
 

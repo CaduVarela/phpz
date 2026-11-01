@@ -42,7 +42,7 @@ Then let phpz put the active PHP version on your `PATH`:
 phpz setup
 ```
 
-This adds a small marked block to your `~/.bashrc` (bash) or `~/.zshrc` (zsh), and running it twice is harmless. phpz also offers to do it right after your first `phpz install`, when it runs in an interactive terminal. Open a new terminal afterwards. Other shells are not supported yet: add `export PATH="$HOME/.phpz/current/bin:$PATH"` to your shell profile by hand.
+This adds a small marked block to your `~/.bashrc` (bash) or `~/.zshrc` (zsh), and running it twice is harmless. phpz also offers to do it right after your first `phpz install`, when it runs in an interactive terminal. Open a new terminal afterwards. `phpz setup --undo` removes the block and leaves the rest of the file untouched. Other shells are not supported yet: add `export PATH="$HOME/.phpz/current/bin:$PATH"` to your shell profile by hand.
 
 Optionally enable shell completion (bash example):
 
@@ -63,6 +63,7 @@ phpz use 8.3            # switch the active version
 phpz current            # show the active version
 phpz reset              # deactivate phpz's PHP (removes the "current" link)
 phpz setup              # add phpz to your PATH (bash and zsh)
+phpz setup --undo       # remove it from your shell profile again
 
 phpz config get memory_limit
 phpz config set memory_limit 512M
