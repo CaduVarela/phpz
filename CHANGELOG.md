@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-01
+
+phpz can update itself, one command sets a project up, and compiling extensions covers the ones that need libraries.
+
 ### Added
 
 - `phpz self-update` replaces phpz with the newest release, after checking its SHA-256 (`--check` only looks, `--version` picks a release).
