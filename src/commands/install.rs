@@ -103,7 +103,8 @@ fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> 
         .map_err(|error| format!("writing php.ini: {}", error))
 }
 
-/// Turn `;directive` lines into active `directive` lines. Anything else is left alone.
+/// Turn `;directive` lines into active `directive` lines, ignoring a trailing `; comment`
+/// when matching. Anything else is left alone.
 fn uncomment_directives(content: &str, directives: &[String]) -> String {
     content
         .split_inclusive('\n')
@@ -111,6 +112,7 @@ fn uncomment_directives(content: &str, directives: &[String]) -> String {
             let text = line.trim_end_matches(['\r', '\n']);
             let is_wanted = text
                 .strip_prefix(';')
+                .map(|rest| rest.split(';').next().unwrap_or("").trim_end())
                 .map(|directive| directives.iter().any(|wanted| wanted == directive))
                 .unwrap_or(false);
             if is_wanted {

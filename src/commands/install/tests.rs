@@ -85,3 +85,18 @@ fn zip_entry_escaping_the_destination_is_refused() {
     assert!(error.contains("unsafe path"), "{}", error);
     assert!(!directory.path().join("escaped.txt").exists());
 }
+
+#[test]
+fn directive_followed_by_a_comment_is_still_enabled_and_keeps_its_comment() {
+    let template = ";extension=exif      ; Must be after mbstring as it depends on it\n";
+    assert_eq!(
+        uncomment_directives(template, &directives(&["extension=exif"])),
+        "extension=exif      ; Must be after mbstring as it depends on it\n"
+    );
+}
+
+#[test]
+fn directive_that_only_starts_like_a_wanted_one_is_not_enabled() {
+    let template = ";extension=curl_extra\n";
+    assert_eq!(uncomment_directives(template, &directives(&["extension=curl"])), template);
+}
