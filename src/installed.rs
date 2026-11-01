@@ -50,8 +50,7 @@ fn select_installed(installed: &[String], requested: &str) -> Result<String, Str
 
     installed
         .iter()
-        .filter(|name| version_sort_key(name).starts_with(&requested_parts))
-        .last()
+        .rfind(|name| version_sort_key(name).starts_with(&requested_parts))
         .cloned()
         .ok_or_else(|| {
             format!(
