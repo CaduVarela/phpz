@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-01
+
+Smaller things on top of 0.3: pick up the folder's version with `use`, compile extensions on Linux, and a few safety and housekeeping additions.
+
 ### Added
 
 - `phpz use` without a version switches to the version the current folder pins.
