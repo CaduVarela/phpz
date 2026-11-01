@@ -20,10 +20,6 @@ pub enum Shell {
 impl Shell {
     /// Detect the user's login shell from $SHELL.
     pub fn detect() -> Option<Shell> {
-        // Profile files are a Unix concept; the Windows PATH lives in the registry.
-        if cfg!(windows) {
-            return None;
-        }
         let shell_path = std::env::var_os("SHELL")?;
         match Path::new(&shell_path).file_name()?.to_str()? {
             "bash" => Some(Shell::Bash),
@@ -44,6 +40,73 @@ impl Shell {
     }
 }
 
+/// Where phpz puts itself on PATH.
+pub enum SetupTarget {
+    /// A line block in the profile file of a Unix shell.
+    Profile(Shell),
+}
+
+impl SetupTarget {
+    pub fn detect() -> Option<SetupTarget> {
+        Shell::detect().map(SetupTarget::Profile)
+    }
+
+    /// Short name used in messages, e.g. "~/.bashrc".
+    pub fn description(&self) -> String {
+        match self {
+            SetupTarget::Profile(shell) => shell
+                .profile_path()
+                .map(|path| tilde_path(&path))
+                .unwrap_or_else(|_| "your shell profile".to_string()),
+        }
+    }
+
+    pub fn is_configured(&self) -> bool {
+        match self {
+            SetupTarget::Profile(shell) => shell
+                .profile_path()
+                .and_then(|path| fs::read_to_string(path).map_err(|error| error.to_string()))
+                .map(|content| content.contains(BLOCK_START))
+                .unwrap_or(false),
+        }
+    }
+
+    /// Add phpz to PATH. Returns false when it was already there.
+    pub fn configure(&self) -> Result<bool, String> {
+        match self {
+            SetupTarget::Profile(shell) => {
+                let profile = shell.profile_path()?;
+                match add_block(&read_profile(&profile)?) {
+                    Some(updated) => write_profile(&profile, updated).map(|_| true),
+                    None => Ok(false),
+                }
+            }
+        }
+    }
+
+    /// Remove phpz from PATH. Returns false when it was not there.
+    pub fn unconfigure(&self) -> Result<bool, String> {
+        match self {
+            SetupTarget::Profile(shell) => {
+                let profile = shell.profile_path()?;
+                match remove_block(&read_profile(&profile)?)? {
+                    Some(updated) => write_profile(&profile, updated).map(|_| true),
+                    None => Ok(false),
+                }
+            }
+        }
+    }
+
+    /// How to make a freshly added change take effect in the current terminal.
+    pub fn apply_hint(&self) -> String {
+        match self {
+            SetupTarget::Profile(_) => {
+                format!("Open a new terminal or run: source {}", self.description())
+            }
+        }
+    }
+}
+
 /// Path with the home directory written as "~".
 fn tilde_path_with_home(path: &Path, home: Option<&Path>) -> String {
     match home.and_then(|home| path.strip_prefix(home).ok()) {
@@ -52,16 +115,8 @@ fn tilde_path_with_home(path: &Path, home: Option<&Path>) -> String {
     }
 }
 
-pub fn tilde_path(path: &Path) -> String {
+fn tilde_path(path: &Path) -> String {
     tilde_path_with_home(path, dirs::home_dir().as_deref())
-}
-
-/// How to make a freshly added block take effect in the current terminal.
-pub fn apply_hint(profile: &Path) -> String {
-    format!(
-        "Open a new terminal or run: source {}",
-        tilde_path(profile)
-    )
 }
 
 /// Content with the phpz block appended, or None when the block is already there.
@@ -102,14 +157,6 @@ pub fn remove_block(content: &str) -> Result<Option<String>, String> {
     Ok(Some([&lines[..first_removed], &lines[end + 1..]].concat().concat()))
 }
 
-pub fn is_configured(shell: &Shell) -> bool {
-    shell
-        .profile_path()
-        .and_then(|path| fs::read_to_string(path).map_err(|error| error.to_string()))
-        .map(|content| content.contains(BLOCK_START))
-        .unwrap_or(false)
-}
-
 fn read_profile(profile: &Path) -> Result<String, String> {
     match fs::read_to_string(profile) {
         Ok(content) => Ok(content),
@@ -123,24 +170,6 @@ fn write_profile(profile: &Path, content: String) -> Result<(), String> {
     fs::write(profile, content).map_err(|error| format!("writing {}: {}", profile.display(), error))
 }
 
-/// Add the phpz block to the shell profile. Returns false when it was already there.
-pub fn configure(shell: &Shell) -> Result<bool, String> {
-    let profile = shell.profile_path()?;
-    match add_block(&read_profile(&profile)?) {
-        Some(updated) => write_profile(&profile, updated).map(|_| true),
-        None => Ok(false),
-    }
-}
-
-/// Remove the phpz block from the shell profile. Returns false when there was none.
-pub fn unconfigure(shell: &Shell) -> Result<bool, String> {
-    let profile = shell.profile_path()?;
-    match remove_block(&read_profile(&profile)?)? {
-        Some(updated) => write_profile(&profile, updated).map(|_| true),
-        None => Ok(false),
-    }
-}
-
 /// Whether the active version's bin directory is on PATH in this process.
 pub fn path_is_active() -> bool {
     let Ok(bin_directory) = paths::active_bin_directory() else {
@@ -151,24 +180,34 @@ pub fn path_is_active() -> bool {
         .unwrap_or(false)
 }
 
-/// After the first install, offer to configure the shell profile.
+/// The note `phpz use` prints when the new version is not reachable from this terminal yet.
+pub fn path_note() -> Option<String> {
+    if path_is_active() {
+        return None;
+    }
+    Some(match SetupTarget::detect() {
+        Some(target) if target.is_configured() => format!("Note: {}", target.apply_hint()),
+        _ => "Note: run 'phpz setup' to add phpz to your PATH.".to_string(),
+    })
+}
+
+/// After the first install, offer to put phpz on PATH.
 /// Stays silent in scripts and CI (no terminal), when PATH is already set up,
 /// and after the question was asked once.
 pub fn offer_setup() {
     if path_is_active() || !(io::stdin().is_terminal() && io::stderr().is_terminal()) {
         return;
     }
-    let Some(shell) = Shell::detect() else { return };
-    let Ok(profile) = shell.profile_path() else { return };
+    let Some(target) = SetupTarget::detect() else { return };
     let Ok(home) = paths::phpz_home() else { return };
     let marker = home.join(PROMPTED_MARKER);
 
-    if is_configured(&shell) || marker.exists() {
+    if target.is_configured() || marker.exists() {
         return;
     }
     let _ = fs::write(&marker, "");
 
-    eprint!("Add phpz to your PATH by editing {}? [Y/n] ", profile.display());
+    eprint!("Add phpz to your PATH by editing {}? [Y/n] ", target.description());
     let _ = io::stderr().flush();
 
     let mut answer = String::new();
@@ -180,8 +219,8 @@ pub fn offer_setup() {
         return;
     }
 
-    match configure(&shell) {
-        Ok(_) => println!("Updated {}. {}", tilde_path(&profile), apply_hint(&profile)),
+    match target.configure() {
+        Ok(_) => println!("Updated {}. {}", target.description(), target.apply_hint()),
         Err(error) => eprintln!("Error: {}", error),
     }
 }

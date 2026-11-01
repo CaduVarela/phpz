@@ -1,6 +1,6 @@
-use crate::shell::{self, Shell};
+use crate::shell::SetupTarget;
 
-/// Add phpz to your PATH by editing your shell profile (or remove it with `undo`)
+/// Add phpz to your PATH (or remove it with `undo`)
 pub fn run(undo: bool) {
     if let Err(error) = setup(undo) {
         eprintln!("Error: {}", error);
@@ -9,25 +9,25 @@ pub fn run(undo: bool) {
 }
 
 fn setup(undo: bool) -> Result<(), String> {
-    let shell = Shell::detect().ok_or(
+    let target = SetupTarget::detect().ok_or(
         "unsupported shell (only bash and zsh are supported). \
          Add this line to your shell profile manually: eval \"$(phpz env)\"",
     )?;
-    let profile = shell.profile_path()?;
+    let description = target.description();
 
     if undo {
-        if shell::unconfigure(&shell)? {
-            println!("Removed phpz from {}. Open a new terminal to apply it.", shell::tilde_path(&profile));
+        if target.unconfigure()? {
+            println!("Removed phpz from {}. Open a new terminal to apply it.", description);
         } else {
-            println!("phpz is not set up in {}.", shell::tilde_path(&profile));
+            println!("phpz is not set up in {}.", description);
         }
         return Ok(());
     }
 
-    if shell::configure(&shell)? {
-        println!("Updated {}. {}", shell::tilde_path(&profile), shell::apply_hint(&profile));
+    if target.configure()? {
+        println!("Updated {}. {}", description, target.apply_hint());
     } else {
-        println!("phpz is already set up in {}.", shell::tilde_path(&profile));
+        println!("phpz is already set up in {}.", description);
     }
     Ok(())
 }

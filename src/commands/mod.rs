@@ -38,7 +38,7 @@ pub enum Commands {
     Current,
     /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
     Env,
-    /// Add phpz to your PATH by editing your shell profile
+    /// Add phpz to your PATH
     Setup {
         /// Remove phpz from your shell profile instead
         #[arg(long)]
