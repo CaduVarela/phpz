@@ -192,6 +192,22 @@ static-php-cli publishes several builds, and the extensions a version has are fi
 
 ---
 
+## Compiling from the official source (Linux)
+
+`phpz install <version> --build` (`src/source_build.rs`, and `install_from_source` in `src/commands/install.rs`). The earlier decision not to compile or host builds was about the project doing it for everyone, which is a recurring job and a server. Compiling on the user's own machine, when asked, needs neither: the input is php.net's file and the output stays on that machine.
+
+- *Source and checks.* The release comes from php.net's release JSON (`/releases/index.php?json&version=...`), which also publishes a SHA-256 for each archive. The `.tar.gz` is used because phpz can already unpack it (`flate2` and `tar`), so no xz dependency is needed. The archive is compared with the published SHA-256 and, if `gpg` is installed, with its detached signature (`.asc`) using the keyring php.net publishes, in a throwaway `GNUPGHOME`. A bad or unverifiable signature stops the build. Without `gpg` the SHA-256 check is the only one, and phpz says so. Limit: the SHA-256 and the keyring both come from php.net, so they protect against a damaged or swapped download but not against php.net itself being compromised; pinning the release managers' key fingerprints would harden that and is not done.
+- *The recipe is a table.* `CORE_FLAGS` need nothing but a compiler. Each optional component lists its configure flags, the pkg-config modules it needs, and the Debian or Ubuntu package to suggest. `plan()` keeps a component only if all its modules are present, so a missing library leaves one extension out with a hint and never fails the build. Without `pkg-config` only the library-free part is built. The table encodes dependencies that `--disable-all` hides, found by a real build: `dom`, `simplexml` and `soap` need `--with-libxml`, and `gd` needs `--with-zlib`. Tests keep those pairs together.
+- *Shared extensions.* `opcache` (before 8.5), `intl`, `soap` and `sodium` are configured `=shared`, producing `.so` files in `lib/php/extensions/<api>/`. `extensions::available_shared` reads that directory next to the Windows `ext` one, so `ext list|enable|disable` work unchanged. `intl`, `soap` and `sodium` are switched on in the generated `php.ini`; `opcache` is left off, because it does nothing for a command line script. From 8.5 PHP always builds opcache in (the `=shared` flag is ignored and no `opcache.so` appears), so the plan takes the series and does not promise a file there; `ext list` shows it as built in.
+- *Prefix.* PHP bakes its prefix into the binary (the default `extension_dir`, `php-config`, the include path), and a version directory must keep working when it is renamed into place. So `--prefix` is the final directory and `make install INSTALL_ROOT=<staging>` writes the tree to `<staging><final>`, which is then moved. `php-config --prefix` reports the final directory, and `phpize` and the headers are kept for a future PECL build.
+- *Layout.* The binary is moved to `libexec/php` and a `bin/php` wrapper is written, exactly as for prebuilt versions, so the shim and everything else treat both alike. `.phpz-variant` holds `source`; `list` shows `[source]`.
+- *Failure.* The log of every step goes to `~/.phpz/build/<version>/build.log`. On failure phpz shows the **first** errors, not the end of the log: with parallel jobs `make` keeps going after an error and the end of the log is only warnings. It then deletes the source tree, the staging area and the downloads and keeps the log. On success the whole work directory goes.
+- *Limits found by trying.* PHP 7.4 does not compile against OpenSSL 3 (`RSA_SSLV23_PADDING` undeclared), so versions before 8.1 get a warning up front and may fail. The recipe covers 7.4 and newer, and refuses older ones. Linux only: macOS would need Homebrew libraries that could not be tried.
+- *Measured.* A minimal build of 8.3.36 took 89 seconds (43 configure, 43 make). The full recipe took about 216 seconds end to end on 12 cores for 8.3.36 (65 MB installed), 238 seconds for 8.5.12 and 205 seconds for 8.1.34; all three loaded their extensions and switched them.
+- *Not done.* Building PECL extensions with the kept `phpize`, so `xdebug` is still unavailable on Linux.
+
+---
+
 ## php.ini Management
 
 Each version has its own `php.ini` under `versions/<version>/`. A default is written at install time and users are free to edit it.
@@ -270,6 +286,7 @@ src/
   installed.rs       installed versions and the default version
   project.rs         finding and reading .php-version and .phpz.toml
   project_ini.rs     the php.ini generated for a project's extension choices
+  source_build.rs    compiling from php.net: release data, the configure recipe, signature check
   variant.rs         the static-php builds, their recorded choice, which one covers an extension set
   shim.rs            the php shim: starts the right version, keeps the link or copy fresh
   selection.rs       the version that applies in a directory, and where it comes from
@@ -291,6 +308,8 @@ src/
   <module>/tests.rs  unit tests of <module>.rs (private items stay reachable)
 tests/fixtures/      sample files used by the tests
 ```
+
+Integration test files are not named after "install", "setup" or "update" (`tests/command_options.rs` is the one that tests `install`): Windows treats an executable with such a name and no manifest as an installer and refuses to run it without administrator rights (error 740). The CI runs as an administrator and does not notice; a developer's Windows machine does.
 
 Version and installed-version selection are pure functions (`select_build`, `select_installed`), and so are the parsers and text edits that Windows needs (`parse_releases`, `add_entry`, `remove_entry`, `uncomment_directives`), so all of them are unit tested on every platform without network or registry access. `tests/closed_pipe.rs` runs the real binary with a closed output pipe. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings` on Linux and Windows.
 

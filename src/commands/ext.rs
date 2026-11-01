@@ -210,7 +210,11 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
 /// On a static build an extension can only come with another build. Say which build has it and
 /// what that build lacks, and switch only if the person agrees. True when the version was switched.
 fn suggest_larger_build(version: &ActiveVersion, name: &str) -> Result<bool, String> {
-    let current = variant::read(&version.directory);
+    let current = match variant::read_origin(&version.directory) {
+        variant::Origin::Prebuilt(current) => current,
+        // Built here: its shared extensions are the ones that were compiled.
+        variant::Origin::Source => return Ok(false),
+    };
 
     let mut found = None;
     for candidate in Variant::ALL {

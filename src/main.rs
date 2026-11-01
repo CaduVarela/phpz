@@ -16,6 +16,7 @@ mod pecl;
 mod pipe;
 mod selection;
 mod shim;
+mod source_build;
 mod settings;
 mod shell;
 mod user_path;

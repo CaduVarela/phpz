@@ -295,3 +295,31 @@ fn only_the_not_available_skips_suggest_a_download() {
     report.skipped.push(("xdebug".to_string(), NOT_AVAILABLE.to_string()));
     assert!(report.has_unavailable());
 }
+
+#[test]
+fn the_so_files_of_a_build_made_here_are_the_shared_extensions() {
+    let version = tempfile::tempdir().unwrap();
+    let api = version.path().join("lib/php/extensions/no-debug-non-zts-20230831");
+    fs::create_dir_all(&api).unwrap();
+    for file in ["intl.so", "opcache.so", "readme.txt", "opcache.a"] {
+        fs::write(api.join(file), "").unwrap();
+    }
+    assert_eq!(available_shared(version.path()), set(&["intl", "opcache"]));
+}
+
+#[test]
+fn a_version_without_extension_directories_has_no_shared_extensions() {
+    let version = tempfile::tempdir().unwrap();
+    assert!(available_shared(version.path()).is_empty());
+}
+
+#[test]
+fn dlls_and_so_files_are_both_seen_when_both_exist() {
+    let version = tempfile::tempdir().unwrap();
+    fs::create_dir_all(version.path().join("ext")).unwrap();
+    fs::write(version.path().join("ext/php_gd.dll"), "").unwrap();
+    let api = version.path().join("lib/php/extensions/x");
+    fs::create_dir_all(&api).unwrap();
+    fs::write(api.join("intl.so"), "").unwrap();
+    assert_eq!(available_shared(version.path()), set(&["gd", "intl"]));
+}

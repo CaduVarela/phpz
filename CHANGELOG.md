@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-01
+
+Per-project versions and extensions, a `php` shim, and more ways to get PHP on Linux and macOS.
+
 ### Added
 
+- `phpz install <version> --build` (Linux) compiles PHP from the official source at php.net, checked against its SHA-256 and PGP signature. It gives the newest patch release (the prebuilt builds trail php.net) and builds `intl`, `soap` and `opcache` as `.so` files that `phpz ext enable|disable` can switch. Extensions whose development libraries are missing are left out with the package to install. `--jobs` limits the compile jobs, `--replace` compiles over a prebuilt version keeping its `php.ini`, and `phpz list` shows `[source]`. A failed build prints its first errors and keeps the log. PHP before 8.1 may not compile with OpenSSL 3, and macOS is not supported.
 - Builds on Linux and macOS. `phpz variants` lists the static-php builds (`minimal`, `common`, `bulk`, `gnu-bulk`) with their size and what each has and lacks compared to the default. `phpz install <version> --variant <name>` picks one, `--replace` moves an installed version to another build keeping its `php.ini` and `conf.d`, and `phpz list --remote --variant <name>` lists what a build offers. `phpz list` shows a version's build when it is not `common`.
 - `phpz ext enable <name>` on a build that lacks the extension says which build has it and what that build would lose, and switches if you answer yes. `phpz install` asks the same when your global extension settings need a larger build. The default build stays `common`, and a larger one is never installed without a yes.
 - Extensions per project. The `[extensions]` table of a `.phpz.toml` (`enable`, `disable`, names only) applies inside that project through a generated `php.ini`, and nowhere else. `phpz ext sync --project` reports the extensions the version lacks and, on Windows with `--install`, downloads them. `phpz ext list` shows what the project changes.

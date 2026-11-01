@@ -58,6 +58,7 @@ phpz completions bash > ~/.local/share/bash-completion/completions/phpz
 ```bash
 phpz list --remote      # list versions available for download (add --all for every patch)
 phpz variants           # Linux and macOS: the builds you can choose from, and what each has
+phpz install 8.3 --build                         # Linux: compile it from the official source (a few minutes)
 phpz install 8.3 --variant bulk                  # a larger build with intl, opcache, imagick...
 phpz install 8.3.32 --variant bulk --replace     # move an installed version to another build, keeping its php.ini
 phpz install 8.3        # install the latest 8.3.x (also accepts "8" or "8.3.9")
@@ -104,6 +105,15 @@ phpz completions bash   # also zsh, fish, elvish and powershell
 | `gnu-bulk` | about 40 MB | the same extensions as `bulk`, built dynamically for glibc, so it can load `.so` files (Linux only, PHP 8.1 and newer) |
 
 The lists come from the server when you ask, so they are never out of date. A larger build is never installed unless you ask for it with `--variant`, or answer yes to a question: phpz asks when your global extension settings need something the default build lacks, and when `phpz ext enable` finds that another build has the extension. The question always says what the other build lacks. `phpz install <version> --variant <name> --replace` moves a version to another build and keeps its `php.ini` and `conf.d`; the old build is put back if anything fails. `phpz list` shows the build of a version when it is not the default.
+
+**Compiling from the official source (Linux).** `phpz install 8.3 --build` downloads the source from php.net, checks its SHA-256 and its PGP signature, and compiles it on your machine (about 4 minutes on 12 cores; `--jobs N` limits that). Nothing is hosted by anyone: it is php.net's own file, built by you. Why you might want it:
+
+- **The newest patch release.** The prebuilt builds trail php.net (they had 8.3.32 when php.net had 8.3.36). Compiling gives you the release that has the latest security fixes.
+- **Extensions you can switch.** `intl`, `soap` and `opcache` are built as `.so` files, so `phpz ext enable|disable` works on them like it does on Windows. `intl` and `soap` start enabled, and `opcache` starts off. (From PHP 8.5 `opcache` is part of PHP itself, so there is no file to switch and `phpz ext list` shows it as built in.)
+
+It needs a C compiler, `make` and, for each extension, its development library, which `pkg-config` finds. What your machine lacks is not an error: that extension is left out, and phpz says which package to install (for example `libicu-dev` for `intl`). The result sits next to the other versions, `phpz list` marks it `[source]`, and `--replace` compiles over a prebuilt version of the same number while keeping its `php.ini`. A failed build prints the first errors and keeps only the log.
+
+Not everything compiles: PHP 7.4 fails with the OpenSSL 3 that current distributions ship, and older series are not covered by the recipe at all. macOS is not supported yet.
 
 **Per-project versions.** A project can say which PHP it needs. phpz looks for a `.php-version` (just a version such as `8.2`, `8.2.34` or `v8.2`, the same file other version managers read) or a `.phpz.toml` in the current folder and then in each parent folder, and uses the nearest one. `.phpz.toml` holds `php = "8.2"` and, later, the project's extensions, and wins over a `.php-version` in the same folder. A version that is not installed is an error that names the file and says what to run, never a silent fallback to another PHP. `phpz current`, `list`, `which`, `config` and `ext` follow the project, and so does the plain `php` command: `phpz setup` puts `~/.phpz/shims` (on Windows, `%USERPROFILE%\.phpz\shims`) on your `PATH`, and the `php` in it is phpz itself, which finds the version for the folder it runs in and starts that PHP. It starts it with that version's own `php.ini` and, on Windows, without a `PHP_INI_SCAN_DIR` exported by another PHP such as Scoop's, which would otherwise make extensions load twice. Arguments and the exit code pass through unchanged.
 
@@ -162,7 +172,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 ## Limitations
 
 - On Linux and macOS each build has a fixed set of extensions. The default `common` build has the usual web stack; `intl`, `opcache` and `imagick` need `bulk` or `gnu-bulk`. `xdebug`, `mongodb`, `pcov`, `igbinary` and `memcached` are in none of them, and only `gnu-bulk` could load an extension file, which phpz cannot provide yet.
-- On Linux and macOS, downloads are not verified against a checksum, because upstream does not publish them.
+- On Linux and macOS, prebuilt downloads are not verified against a checksum, because upstream does not publish them. A version compiled with `--build` is verified against php.net's SHA-256 and PGP signature.
 - On Windows, PHP 7.0 and newer are available (`phpz list --remote --all`), as the non-thread-safe x64 build, and the official builds need the Microsoft Visual C++ Redistributable. PHP 7.0 to 7.3 only have their final release (7.0.33, 7.1.33, 7.2.34, 7.3.33) in the official archive.
 - On Windows, the newest release of each series and the most recent patches are verified against a published SHA-256. For most older patches windows.php.net publishes no checksum at all. Installing one asks for confirmation (the default is no), and in a script it is refused unless you pass `--allow-unverified`. Linux and macOS builds have no checksum either and do not ask for now; phpz only prints a note.
 - On Windows, `PHP_INI_SCAN_DIR` or `PHPRC` set in your environment (for example by Scoop's PHP) make every PHP read configuration from outside its own directory, which can load extensions twice. The `php` shim clears them for the PHP it starts. A `php.exe` started directly, or a terminal that has not been set up with `phpz setup`, is not protected, and `phpz use` warns about them and says how to clear them.

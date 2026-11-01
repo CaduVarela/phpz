@@ -33,18 +33,31 @@ fn key_for(name: &str) -> &'static str {
     }
 }
 
-/// Extensions a version can switch on and off: the DLLs in its `ext` directory (Windows layout).
-/// A static build has none.
+/// Extensions a version can switch on and off: the DLLs in its `ext` directory (Windows layout),
+/// or the `.so` files of a build compiled here (`lib/php/extensions/<api>/`). A prebuilt static
+/// build has none.
 pub fn available_shared(version_directory: &Path) -> BTreeSet<String> {
-    let Ok(entries) = fs::read_dir(version_directory.join("ext")) else {
-        return BTreeSet::new();
-    };
-    entries
+    let mut found: BTreeSet<String> = fs::read_dir(version_directory.join("ext"))
+        .into_iter()
+        .flatten()
         .flatten()
         .filter_map(|entry| entry.file_name().into_string().ok())
         .filter(|file| file.to_lowercase().starts_with("php_") && file.to_lowercase().ends_with(".dll"))
         .map(|file| extension_name(&file))
-        .collect()
+        .collect();
+
+    for api_directory in fs::read_dir(version_directory.join("lib/php/extensions")).into_iter().flatten().flatten() {
+        found.extend(
+            fs::read_dir(api_directory.path())
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|entry| entry.file_name().into_string().ok())
+                .filter(|file| file.ends_with(".so"))
+                .map(|file| extension_name(&file)),
+        );
+    }
+    found
 }
 
 pub fn php_executable(version_directory: &Path) -> PathBuf {
