@@ -136,8 +136,10 @@ src/
   paths.rs           ~/.phpz, versions directory, current link
   version.rs         version resolution and download URLs
   installed.rs       installed versions, active version, active php.ini path
-  ini.rs             line-preserving php.ini editor (with unit tests)
+  ini.rs             line-preserving php.ini editor
   commands/          one module per subcommand
+  <module>/tests.rs  unit tests of <module>.rs (private items stay reachable)
+tests/fixtures/      sample files used by the tests
 ```
 
 Version and installed-version selection are pure functions (`select_version`, `select_installed`) so they are unit tested without network or disk access. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings`.
