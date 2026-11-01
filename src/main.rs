@@ -1,4 +1,5 @@
 mod commands;
+mod consent;
 mod download;
 mod environment;
 mod extensions;

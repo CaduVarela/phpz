@@ -6,7 +6,7 @@ use flate2::read::GzDecoder;
 use tar::Archive;
 
 use crate::version::Build;
-use crate::{download, extensions, interaction, paths, shell, version};
+use crate::{consent, download, extensions, paths, shell, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -82,49 +82,10 @@ fn apply_global_extension_settings(directory: &Path) {
     }
 }
 
-/// What to do about a build whose checksum is missing.
-#[derive(Debug, PartialEq)]
-enum Consent {
-    NotNeeded,
-    Given,
-    Ask,
-    Refused,
-}
-
-/// Only a build that should have had a checksum needs consent. Scripts cannot answer a question,
-/// so they must opt in with `--allow-unverified`.
-fn consent_for(missing_checksum_is_unusual: bool, allow_unverified: bool, interactive: bool) -> Consent {
-    if !missing_checksum_is_unusual {
-        Consent::NotNeeded
-    } else if allow_unverified {
-        Consent::Given
-    } else if interactive {
-        Consent::Ask
-    } else {
-        Consent::Refused
-    }
-}
-
+/// Windows builds that should have a checksum but do not need the user's consent.
 fn confirm_unverified(build: &Build, allow_unverified: bool) -> Result<(), String> {
     let unusual = build.expects_checksum && build.sha256.is_none();
-    let version = build.version_name();
-
-    match consent_for(unusual, allow_unverified, interaction::is_interactive()) {
-        Consent::NotNeeded | Consent::Given => Ok(()),
-        Consent::Refused => Err(format!(
-            "PHP {} has no published checksum, so the download cannot be verified. \
-             Run phpz in a terminal to confirm, or pass --allow-unverified.",
-            version
-        )),
-        Consent::Ask => {
-            eprintln!("PHP {} has no published checksum, so the download cannot be verified.", version);
-            eprintln!("It is fetched over HTTPS from the official site, but nothing proves the file is intact.");
-            match interaction::confirm("Install it anyway?", false) {
-                Some(true) => Ok(()),
-                _ => Err("installation cancelled".to_string()),
-            }
-        }
-    }
+    consent::require(unusual, &format!("PHP {}", build.version_name()), allow_unverified)
 }
 
 fn populate(build: &Build, directory: &Path) -> Result<(), String> {
