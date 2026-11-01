@@ -3,11 +3,13 @@ name = "phpz"
 version = "0.5.0"
 edition = "2021"
 authors = ["Carlos Varela <caduvarela@gmail.com>"]
-description = "A simple PHP version manager"
+description = "PHP version manager with per-project versions and extensions. No sudo, no compiler."
 license = "MIT"
 repository = "https://github.com/CaduVarela/phpz"
 readme = "README.md"
-keywords = ["php", "version-manager", "cli"]
+homepage = "https://github.com/CaduVarela/phpz"
+keywords = ["php", "version-manager", "cli", "nvm", "extensions"]
+exclude = [".github", "docs/assets", "packaging"]
 categories = ["command-line-utilities", "development-tools"]
 
 [dependencies]
