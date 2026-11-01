@@ -62,7 +62,11 @@ phpz install 7.3.33 --allow-unverified   # Windows: skip the question for a buil
 phpz list               # list installed versions, marking the active one
 phpz uninstall 8.3.32   # remove an installed version (exact version, not the active one)
 phpz use 8.3            # switch the active version
-phpz current            # show the active version
+phpz current            # show the version that applies in the current directory
+phpz local 8.2          # use PHP 8.2 in this folder and below (writes .php-version)
+phpz local              # show what applies here, and where it comes from
+phpz local --unset      # remove the .php-version of this folder
+phpz which              # path of the php that runs here
 phpz reset              # deactivate phpz's PHP (removes the "current" link)
 phpz setup              # add phpz to your PATH (bash and zsh, or the user PATH on Windows)
 phpz setup --undo       # remove it again
@@ -87,7 +91,9 @@ phpz completions bash   # also zsh, fish, elvish and powershell
 
 **Installing extensions that do not ship with PHP (Windows).** `phpz ext install xdebug` downloads the newest stable release that has a build for your PHP (non thread safe, x64) from the PECL server at downloads.php.net, puts its DLL in the version's `ext` directory and enables it. `--version` picks another release and `--global` also keeps it wished for in every version. That server publishes no checksums, so the first download of a file asks for your confirmation (the default is no; in a script it is refused unless you pass `--allow-unverified`), and phpz records its SHA-256 in `~/.phpz/downloads.lock`. From then on the same address must give the same file, or nothing is installed. `phpz ext sync --install` downloads the wished extensions a version is missing, which is how a freshly installed PHP catches up. Installing a version and `phpz ext sync` without `--install` never download extensions by themselves. Extensions that come with extra libraries (imagick, for example) are refused for now. On Linux and macOS the builds are static and cannot load extra extensions at all.
 
-`phpz config` edits the `php.ini` of the active version. Only the line you change is touched: comments, ordering and repeated keys such as `extension=` are preserved. Values are written exactly as given, so quote them yourself when you need a string (`phpz config set error_log '"/tmp/php errors.log"'`).
+**Per-project versions.** A project can say which PHP it needs. phpz looks for a `.php-version` (just a version such as `8.2`, `8.2.34` or `v8.2`, the same file other version managers read) or a `.phpz.toml` in the current folder and then in each parent folder, and uses the nearest one. `.phpz.toml` holds `php = "8.2"` and, later, the project's extensions, and wins over a `.php-version` in the same folder. A version that is not installed is an error that names the file and says what to run, never a silent fallback to another PHP. `phpz current`, `list`, `which`, `config` and `ext` follow the project.
+
+`phpz config` edits the `php.ini` of the version that applies here. Only the line you change is touched: comments, ordering and repeated keys such as `extension=` are preserved. Values are written exactly as given, so quote them yourself when you need a string (`phpz config set error_log '"/tmp/php errors.log"'`).
 
 ---
 

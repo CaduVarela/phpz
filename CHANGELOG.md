@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Per-project PHP versions. A `.php-version` (just a version) or a `.phpz.toml` (`php = "8.3"`, plus extensions later) in a folder or any parent folder sets the version there. `phpz local <version>` writes the file, `phpz local --unset` removes it, `phpz local` shows what applies, and `phpz which` prints the php that would run. `current`, `list`, `config` and `ext` follow the project. A pinned version that is not installed is an error, never a fallback.
+
 ## [0.2.0] - 2026-11-01
 
 Adds Windows support and extension management.
