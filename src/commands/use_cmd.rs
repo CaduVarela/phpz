@@ -1,3 +1,4 @@
+use crate::environment;
 use crate::installed::find_installed;
 use crate::link;
 use crate::paths;
@@ -19,6 +20,7 @@ fn activate(requested: &str) -> Result<(), String> {
     link::replace_link(&target, &link)?;
 
     println!("Now using PHP {}", version);
+    environment::warn_about_ini_overrides();
     if !shell::path_is_active() {
         if cfg!(windows) {
             println!("Note: add {} to your PATH.", paths::active_bin_directory()?.display());

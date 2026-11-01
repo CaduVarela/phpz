@@ -1,4 +1,5 @@
 mod commands;
+mod environment;
 mod ini;
 mod installed;
 mod link;
