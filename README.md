@@ -32,8 +32,7 @@ phpz is built from source with a recent [Rust toolchain](https://rustup.rs):
 ```bash
 git clone https://github.com/CaduVarela/phpz.git
 cd phpz
-cargo build --release
-cp target/release/phpz ~/.local/bin/   # or any directory on your PATH
+cargo install --path .   # installs to ~/.cargo/bin
 ```
 
 Then let phpz put the active PHP version on your `PATH`:
