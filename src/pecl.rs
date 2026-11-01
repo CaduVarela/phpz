@@ -107,18 +107,10 @@ pub fn find(extension: &str, series: Series, requested: Option<&str>) -> Result<
     ))
 }
 
-/// Files that come with an extension but do not matter to PHP.
-fn is_harmless(file: &str) -> bool {
-    let lower = file.to_lowercase();
-    [".pdb", ".ini", ".txt", ".md"].iter().any(|suffix| lower.ends_with(suffix))
-        || ["license", "readme", "credits", "notice", "changelog", "changes", "copying"]
-            .iter()
-            .any(|prefix| lower.starts_with(prefix))
-}
-
-/// Put `php_<name>.dll` from the zip into `ext_directory`. A package that carries anything else
-/// that matters (more libraries, programs, folders) is refused, because dropping unknown files
-/// next to PHP could replace one of its own.
+/// Put `php_<name>.dll` from the zip into `ext_directory`. Only that one file is extracted;
+/// documentation, symbols and sample scripts in the package are left alone. A package that also
+/// carries other libraries or programs is refused: the extension would need them to load, and
+/// dropping unknown libraries next to PHP could replace one of its own.
 pub fn install_dll(archive_path: &Path, name: &str, ext_directory: &Path) -> Result<(), String> {
     let wanted = format!("php_{}.dll", name);
     let file = fs::File::open(archive_path).map_err(|error| error.to_string())?;
@@ -128,22 +120,15 @@ pub fn install_dll(archive_path: &Path, name: &str, ext_directory: &Path) -> Res
     for index in 0..archive.len() {
         let entry = archive.by_index(index).map_err(|error| format!("reading archive: {}", error))?;
         let entry_name = entry.name().to_string();
-        let unsupported = |what: &str| {
-            Err(format!(
-                "{} comes with {} ({}), which phpz cannot install yet.",
-                name, what, entry_name
-            ))
-        };
+        let lower = entry_name.to_lowercase();
 
-        if entry_name.contains('/') || entry_name.contains('\\') {
-            return unsupported("folders");
-        }
         if entry_name.eq_ignore_ascii_case(&wanted) {
             found = Some(index);
-        } else if entry_name.to_lowercase().ends_with(".dll") || entry_name.to_lowercase().ends_with(".exe") {
-            return unsupported("extra libraries");
-        } else if !is_harmless(&entry_name) {
-            return unsupported("files it does not know");
+        } else if lower.ends_with(".dll") || lower.ends_with(".exe") {
+            return Err(format!(
+                "{} comes with extra libraries ({}), which phpz cannot install yet.",
+                name, entry_name
+            ));
         }
     }
 

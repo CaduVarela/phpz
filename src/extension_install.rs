@@ -48,12 +48,20 @@ pub fn install_package(
         }
     });
     let result = downloaded.and_then(|actual| {
-        // Remember the checksum before installing, so a failure to save it stops the install.
+        if remembered.is_some() {
+            println!("Matches the checksum recorded when you first installed it.");
+        }
+        pecl::install_dll(&archive_path, name, &ext_directory)?;
+        // Only an installed package is remembered. If the lock cannot be saved, take the file back
+        // out: an install that nothing protects later is worse than no install.
         if remembered.is_none() {
             lock.record(&package.url, &actual);
-            lock.save()?;
+            if let Err(error) = lock.save() {
+                let _ = fs::remove_file(ext_directory.join(format!("php_{}.dll", name)));
+                return Err(error);
+            }
         }
-        pecl::install_dll(&archive_path, name, &ext_directory)
+        Ok(())
     });
     let _ = fs::remove_file(&archive_path);
     result?;

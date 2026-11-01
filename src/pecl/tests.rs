@@ -77,12 +77,13 @@ fn install(entries: &[(&str, &str)]) -> (tempfile::TempDir, Result<(), String>) 
 }
 
 #[test]
-fn the_dll_is_installed_and_harmless_files_are_ignored() {
+fn the_dll_is_installed_and_everything_else_in_the_package_is_left_alone() {
     let (root, result) = install(&[
         ("php_xdebug.dll", "the dll"),
         ("php_xdebug.pdb", "symbols"),
         ("xdebug.ini", "settings"),
         ("LICENSE", "text"),
+        ("contrib/tracefile-analyser.php", "a sample script"),
     ]);
     result.unwrap();
 
@@ -101,18 +102,28 @@ fn the_file_name_is_matched_ignoring_case() {
 
 #[test]
 fn a_package_with_extra_libraries_is_refused_and_nothing_is_written() {
-    let (root, result) = install(&[("php_xdebug.dll", "x"), ("CORE_RL_magick_.dll", "y")]);
+    let (root, result) = install(&[
+        ("php_xdebug.dll", "x"),
+        ("config/colors.xml", "folders alone are fine"),
+        ("CORE_RL_magick_.dll", "y"),
+    ]);
     let error = result.unwrap_err();
     assert!(error.contains("extra libraries") && error.contains("CORE_RL_magick_.dll"), "{}", error);
     assert!(!root.path().join("ext").exists());
 }
 
 #[test]
-fn programs_folders_and_unknown_files_are_refused() {
-    for entry in ["tool.exe", "sub/file.txt", "sub\\file.txt", "../php_xdebug.dll", "data.bin"] {
+fn libraries_and_programs_are_refused_wherever_they_are() {
+    for entry in ["tool.exe", "lib/helper.dll", "bin\\helper.dll", "../php_xdebug.dll"] {
         let (_root, result) = install(&[("php_xdebug.dll", "x"), (entry, "y")]);
         assert!(result.is_err(), "{}", entry);
     }
+}
+
+#[test]
+fn an_extension_dll_hidden_in_a_folder_is_not_taken_for_the_real_one() {
+    let (_root, result) = install(&[("bin/php_xdebug.dll", "x")]);
+    assert!(result.is_err());
 }
 
 #[test]
