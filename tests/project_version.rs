@@ -51,17 +51,26 @@ fn local_pins_shows_and_unpins() {
 
     let pinned = phpz(home.path(), work.path(), &["local", "8.3"]);
     assert!(pinned.status.success(), "{}", err(&pinned));
-    assert_eq!(fs::read_to_string(work.path().join(".php-version")).unwrap(), "8.3\n");
+    assert_eq!(
+        fs::read_to_string(work.path().join(".php-version")).unwrap(),
+        "8.3\n"
+    );
     assert_eq!(out(&phpz(home.path(), work.path(), &["current"])), "8.3.32");
 
     let shown = out(&phpz(home.path(), work.path(), &["local"]));
-    assert!(shown.starts_with("PHP 8.3 (set by ") && shown.contains("installed as 8.3.32"), "{}", shown);
+    assert!(
+        shown.starts_with("PHP 8.3 (set by ") && shown.contains("installed as 8.3.32"),
+        "{}",
+        shown
+    );
 
     let removed = phpz(home.path(), work.path(), &["local", "--unset"]);
     assert!(removed.status.success());
     assert!(!work.path().join(".php-version").exists());
     assert_eq!(out(&phpz(home.path(), work.path(), &["current"])), "8.4.27");
-    assert!(out(&phpz(home.path(), work.path(), &["local"])).starts_with("No project version applies"));
+    assert!(
+        out(&phpz(home.path(), work.path(), &["local"])).starts_with("No project version applies")
+    );
 }
 
 #[test]
@@ -69,8 +78,13 @@ fn local_warns_about_a_version_that_is_not_installed_but_still_pins_it() {
     let (home, work) = setup();
     let output = phpz(home.path(), work.path(), &["local", "7.4"]);
     assert!(output.status.success());
-    assert!(out(&output).contains("not installed yet") && out(&output).contains("phpz install 7.4"));
-    assert_eq!(fs::read_to_string(work.path().join(".php-version")).unwrap(), "7.4\n");
+    assert!(
+        out(&output).contains("not installed yet") && out(&output).contains("phpz install 7.4")
+    );
+    assert_eq!(
+        fs::read_to_string(work.path().join(".php-version")).unwrap(),
+        "7.4\n"
+    );
 }
 
 #[test]
@@ -102,7 +116,11 @@ fn a_pin_that_is_not_installed_is_an_error_and_never_falls_back() {
 
     let current = phpz(home.path(), work.path(), &["current"]);
     assert!(!current.status.success());
-    assert!(err(&current).contains("phpz install 7.4"), "{}", err(&current));
+    assert!(
+        err(&current).contains("phpz install 7.4"),
+        "{}",
+        err(&current)
+    );
 
     let which = phpz(home.path(), work.path(), &["which"]);
     assert!(!which.status.success());
@@ -115,7 +133,11 @@ fn which_prints_the_php_that_would_run_here() {
 
     let path = out(&phpz(home.path(), work.path(), &["which"]));
     let expected_name = if cfg!(windows) { "php.exe" } else { "php" };
-    assert!(path.contains("8.3.32") && path.ends_with(expected_name), "{}", path);
+    assert!(
+        path.contains("8.3.32") && path.ends_with(expected_name),
+        "{}",
+        path
+    );
 }
 
 #[test]

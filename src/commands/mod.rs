@@ -1,18 +1,18 @@
+pub mod completions;
+pub mod config;
+pub mod current;
+pub mod env;
+pub mod ext;
 pub mod install;
-pub mod uninstall;
-pub mod use_cmd;
 pub mod list;
 pub mod list_remote;
-pub mod variants;
-pub mod reset;
-pub mod current;
 pub mod local;
-pub mod which;
-pub mod env;
-pub mod completions;
+pub mod reset;
 pub mod setup;
-pub mod config;
-pub mod ext;
+pub mod uninstall;
+pub mod use_cmd;
+pub mod variants;
+pub mod which;
 
 use clap::Subcommand;
 use clap_complete::Shell;
@@ -106,10 +106,21 @@ pub enum Commands {
 impl Commands {
     pub fn run(self) {
         match self {
-            Commands::Install { version, allow_unverified, variant, replace, build, jobs } => install::run(version, allow_unverified, variant, replace, build, jobs),
+            Commands::Install {
+                version,
+                allow_unverified,
+                variant,
+                replace,
+                build,
+                jobs,
+            } => install::run(version, allow_unverified, variant, replace, build, jobs),
             Commands::Uninstall { version } => uninstall::run(version),
             Commands::Use { version } => use_cmd::run(version),
-            Commands::List { remote: true, all, variant } => list_remote::run(all, variant),
+            Commands::List {
+                remote: true,
+                all,
+                variant,
+            } => list_remote::run(all, variant),
             Commands::List { remote: false, .. } => list::run(),
             Commands::Variants => variants::run(),
             Commands::Reset => reset::run(),

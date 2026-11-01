@@ -59,9 +59,18 @@ fn names(builds: &[Build]) -> Vec<String> {
 
 #[test]
 fn archive_name_gives_version_and_revision() {
-    assert_eq!(parse_archive_name("php-8.5.12-nts-Win32-vs17-x64.zip"), Some(((8, 5, 12), 0)));
-    assert_eq!(parse_archive_name("php-8.5.12-1-nts-Win32-vs17-x64.zip"), Some(((8, 5, 12), 1)));
-    assert_eq!(parse_archive_name("php-7.4.33-nts-Win32-vc15-x64.zip"), Some(((7, 4, 33), 0)));
+    assert_eq!(
+        parse_archive_name("php-8.5.12-nts-Win32-vs17-x64.zip"),
+        Some(((8, 5, 12), 0))
+    );
+    assert_eq!(
+        parse_archive_name("php-8.5.12-1-nts-Win32-vs17-x64.zip"),
+        Some(((8, 5, 12), 1))
+    );
+    assert_eq!(
+        parse_archive_name("php-7.4.33-nts-Win32-vc15-x64.zip"),
+        Some(((7, 4, 33), 0))
+    );
 }
 
 #[test]
@@ -82,13 +91,19 @@ fn files_that_are_not_non_thread_safe_x64_builds_are_ignored() {
 #[test]
 fn archive_listing_keeps_supported_versions_only() {
     let builds = parse_archive_listing(LISTING);
-    assert_eq!(names(&builds), ["7.3.33", "7.4.33", "8.0.30", "8.3.12", "8.5.11", "8.5.12"]);
+    assert_eq!(
+        names(&builds),
+        ["7.3.33", "7.4.33", "8.0.30", "8.3.12", "8.5.11", "8.5.12"]
+    );
 }
 
 #[test]
 fn archive_listing_prefers_the_newest_rebuild_of_a_version() {
     let builds = parse_archive_listing(LISTING);
-    let build = builds.iter().find(|build| build.version_name() == "8.5.12").unwrap();
+    let build = builds
+        .iter()
+        .find(|build| build.version_name() == "8.5.12")
+        .unwrap();
     assert_eq!(
         build.url,
         "https://windows.php.net/downloads/releases/archives/php-8.5.12-1-nts-Win32-vs17-x64.zip"
@@ -99,12 +114,18 @@ fn archive_listing_prefers_the_newest_rebuild_of_a_version() {
 fn archive_builds_point_to_their_sbom_and_have_no_checksum_yet() {
     let build = &parse_archive_listing(LISTING)[0];
     assert_eq!(build.sha256, None);
-    assert_eq!(build.sbom_url.as_deref(), Some(format!("{}.cdx.json", build.url).as_str()));
+    assert_eq!(
+        build.sbom_url.as_deref(),
+        Some(format!("{}.cdx.json", build.url).as_str())
+    );
 }
 
 #[test]
 fn releases_json_entry_wins_over_the_archive_entry_of_the_same_version() {
-    let merged = merge(parse_archive_listing(LISTING), parse_releases(RELEASES).unwrap());
+    let merged = merge(
+        parse_archive_listing(LISTING),
+        parse_releases(RELEASES).unwrap(),
+    );
     assert_eq!(
         names(&merged),
         ["7.3.33", "7.4.33", "8.0.30", "8.3.12", "8.3.36", "8.4.27", "8.5.11", "8.5.12"]
@@ -128,9 +149,14 @@ fn checksum_is_read_from_the_sbom_component_that_describes_the_zip() {
 fn sbom_without_a_usable_sha256_gives_no_checksum() {
     assert_eq!(parse_sbom_checksum("not json"), None);
     assert_eq!(parse_sbom_checksum("{}"), None);
-    assert_eq!(parse_sbom_checksum(r#"{"metadata":{"component":{"hashes":[]}}}"#), None);
     assert_eq!(
-        parse_sbom_checksum(r#"{"metadata":{"component":{"hashes":[{"alg":"MD5","content":"ab"}]}}}"#),
+        parse_sbom_checksum(r#"{"metadata":{"component":{"hashes":[]}}}"#),
+        None
+    );
+    assert_eq!(
+        parse_sbom_checksum(
+            r#"{"metadata":{"component":{"hashes":[{"alg":"MD5","content":"ab"}]}}}"#
+        ),
         None
     );
 }

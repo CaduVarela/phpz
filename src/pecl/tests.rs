@@ -24,7 +24,10 @@ fn the_series_comes_from_the_php_version() {
 
 #[test]
 fn stable_versions_skip_prereleases_and_come_newest_first() {
-    assert_eq!(stable_versions(VERSIONS), ["3.5.3", "3.4.0", "3.3.0", "2.9.8"]);
+    assert_eq!(
+        stable_versions(VERSIONS),
+        ["3.5.3", "3.4.0", "3.3.0", "2.9.8"]
+    );
 }
 
 #[test]
@@ -88,9 +91,20 @@ fn the_dll_is_installed_and_everything_else_in_the_package_is_left_alone() {
     result.unwrap();
 
     let ext = root.path().join("ext");
-    assert_eq!(fs::read_to_string(ext.join("php_xdebug.dll")).unwrap(), "the dll");
-    let names: Vec<String> = fs::read_dir(&ext).unwrap().flatten().map(|e| e.file_name().into_string().unwrap()).collect();
-    assert_eq!(names, ["php_xdebug.dll"], "nothing else, not even a temporary file");
+    assert_eq!(
+        fs::read_to_string(ext.join("php_xdebug.dll")).unwrap(),
+        "the dll"
+    );
+    let names: Vec<String> = fs::read_dir(&ext)
+        .unwrap()
+        .flatten()
+        .map(|e| e.file_name().into_string().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        ["php_xdebug.dll"],
+        "nothing else, not even a temporary file"
+    );
 }
 
 #[test]
@@ -108,13 +122,22 @@ fn a_package_with_extra_libraries_is_refused_and_nothing_is_written() {
         ("CORE_RL_magick_.dll", "y"),
     ]);
     let error = result.unwrap_err();
-    assert!(error.contains("extra libraries") && error.contains("CORE_RL_magick_.dll"), "{}", error);
+    assert!(
+        error.contains("extra libraries") && error.contains("CORE_RL_magick_.dll"),
+        "{}",
+        error
+    );
     assert!(!root.path().join("ext").exists());
 }
 
 #[test]
 fn libraries_and_programs_are_refused_wherever_they_are() {
-    for entry in ["tool.exe", "lib/helper.dll", "bin\\helper.dll", "../php_xdebug.dll"] {
+    for entry in [
+        "tool.exe",
+        "lib/helper.dll",
+        "bin\\helper.dll",
+        "../php_xdebug.dll",
+    ] {
         let (_root, result) = install(&[("php_xdebug.dll", "x"), (entry, "y")]);
         assert!(result.is_err(), "{}", entry);
     }
@@ -129,5 +152,7 @@ fn an_extension_dll_hidden_in_a_folder_is_not_taken_for_the_real_one() {
 #[test]
 fn a_package_without_the_dll_is_refused() {
     let (_root, result) = install(&[("xdebug.ini", "settings")]);
-    assert!(result.unwrap_err().contains("does not contain php_xdebug.dll"));
+    assert!(result
+        .unwrap_err()
+        .contains("does not contain php_xdebug.dll"));
 }

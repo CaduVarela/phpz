@@ -22,7 +22,10 @@ fn entry_already_present_is_not_added_again() {
 
 #[test]
 fn matching_ignores_case_and_a_trailing_backslash() {
-    assert_eq!(add_entry(r"c:\users\ME\.PHPZ\current\;C:\Tools", ENTRY), None);
+    assert_eq!(
+        add_entry(r"c:\users\ME\.PHPZ\current\;C:\Tools", ENTRY),
+        None
+    );
 }
 
 #[test]
@@ -52,7 +55,12 @@ fn add_then_remove_restores_the_original_path_exactly() {
         r"C:\a;;C:\b",
     ] {
         let added = add_entry(original, ENTRY).unwrap();
-        assert_eq!(remove_entry(&added, ENTRY).unwrap(), original, "{:?}", original);
+        assert_eq!(
+            remove_entry(&added, ENTRY).unwrap(),
+            original,
+            "{:?}",
+            original
+        );
     }
 }
 

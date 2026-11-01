@@ -16,7 +16,10 @@ fn nothing_is_reported_when_no_variable_is_set() {
 
 #[test]
 fn set_variables_are_reported_in_a_stable_order() {
-    let found = find_overrides(lookup_from(&[("PHPRC", "C:\\php"), ("PHP_INI_SCAN_DIR", "C:\\conf.d")]));
+    let found = find_overrides(lookup_from(&[
+        ("PHPRC", "C:\\php"),
+        ("PHP_INI_SCAN_DIR", "C:\\conf.d"),
+    ]));
     let names: Vec<&str> = found.iter().map(|item| item.name).collect();
     assert_eq!(names, ["PHP_INI_SCAN_DIR", "PHPRC"]);
     assert_eq!(found[0].value, "C:\\conf.d");

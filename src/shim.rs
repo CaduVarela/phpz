@@ -8,8 +8,7 @@ use crate::{paths, project_ini, selection};
 /// The name the phpz binary is given inside the shims directory.
 const SHIM_NAME: &str = "php";
 
-/// Whether this process was started under the name `php`: through the link (Unix) or the copy
-/// (Windows) in the shims directory. Then phpz acts as the `php` of the version that applies here.
+/// Whether this process was started under the name `php`.
 pub fn invoked_as_shim() -> bool {
     std::env::args_os()
         .next()
@@ -32,12 +31,7 @@ struct Launch {
     remove: Vec<&'static str>,
 }
 
-/// A version must read its own php.ini whatever another PHP left in the environment. On Unix this
-/// repeats what the `bin/php` wrapper does; on Windows, where php.exe runs directly, the
-/// scan directory that Scoop and others export is cleared instead.
-///
-/// `ini_directory` is where php.ini is read from: the version's own directory, or a generated one
-/// that carries a project's extension choices.
+/// Run php with this version's own ini directory, ignoring variables another PHP left behind.
 fn launch_plan(directory: &Path, ini_directory: &Path, windows: bool, has_libexec: bool) -> Launch {
     if windows {
         Launch {
@@ -63,8 +57,7 @@ fn launch_plan(directory: &Path, ini_directory: &Path, windows: bool, has_libexe
     }
 }
 
-/// Run the php that applies here with the arguments this process got. Returns the exit code
-/// (on Unix a successful start replaces the process and never returns).
+/// Run the php that applies here; returns the exit code.
 pub fn run() -> i32 {
     match launch() {
         Ok(code) => code,
@@ -80,13 +73,15 @@ fn launch() -> Result<i32, String> {
     let directory = selection.directory()?;
     let has_libexec = directory.join("libexec").join("php").exists();
 
-    // A problem preparing the project's php.ini must not stop php from running, so it falls back
-    // to the version's own settings.
+    // Fall back to the version's own settings.
     let ini_directory = match &selection.project {
-        Some(project) if !project.extensions.is_empty() => {
-            project_ini::ini_directory(&directory, &selection.version, &project.directory, &project.extensions)
-                .unwrap_or_else(|_| directory.clone())
-        }
+        Some(project) if !project.extensions.is_empty() => project_ini::ini_directory(
+            &directory,
+            &selection.version,
+            &project.directory,
+            &project.extensions,
+        )
+        .unwrap_or_else(|_| directory.clone()),
         _ => directory.clone(),
     };
     let plan = launch_plan(&directory, &ini_directory, cfg!(windows), has_libexec);
@@ -117,20 +112,23 @@ fn start(mut command: Command, program: &Path) -> Result<i32, String> {
     Ok(status.code().unwrap_or(1))
 }
 
-/// Make sure the shims directory holds a `php` that is this phpz binary: a symlink on Unix, a copy
-/// on Windows (a copy of an exe keeps working when the original is replaced or moved).
+/// Make sure the shims directory holds a `php` that is this binary.
 pub fn ensure() -> Result<(), String> {
     let directory = paths::shims_directory()?;
     fs::create_dir_all(&directory)
         .map_err(|error| format!("creating {}: {}", directory.display(), error))?;
-    let target = std::env::current_exe().map_err(|error| format!("could not find the phpz binary: {}", error))?;
+    let target = std::env::current_exe()
+        .map_err(|error| format!("could not find the phpz binary: {}", error))?;
     install(&target, &directory)
 }
 
 #[cfg(unix)]
 fn install(target: &Path, directory: &Path) -> Result<(), String> {
     let link = directory.join(SHIM_NAME);
-    if fs::read_link(&link).map(|existing| existing == target).unwrap_or(false) {
+    if fs::read_link(&link)
+        .map(|existing| existing == target)
+        .unwrap_or(false)
+    {
         return Ok(());
     }
     match fs::remove_file(&link) {

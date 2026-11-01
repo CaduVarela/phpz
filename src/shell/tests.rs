@@ -9,12 +9,18 @@ fn block_is_added_to_an_empty_profile() {
 
 #[test]
 fn block_is_separated_from_existing_content() {
-    assert_eq!(add_block("alias a=b\n").unwrap(), format!("alias a=b\n\n{}", BLOCK));
+    assert_eq!(
+        add_block("alias a=b\n").unwrap(),
+        format!("alias a=b\n\n{}", BLOCK)
+    );
 }
 
 #[test]
 fn missing_trailing_newline_is_handled() {
-    assert_eq!(add_block("alias a=b").unwrap(), format!("alias a=b\n\n{}", BLOCK));
+    assert_eq!(
+        add_block("alias a=b").unwrap(),
+        format!("alias a=b\n\n{}", BLOCK)
+    );
 }
 
 #[test]
@@ -56,12 +62,22 @@ fn unclosed_block_is_an_error_and_is_not_touched() {
 #[test]
 fn home_directory_is_shown_as_tilde() {
     let home = Path::new("/home/user");
-    assert_eq!(tilde_path_with_home(Path::new("/home/user/.bashrc"), Some(home)), "~/.bashrc");
-    assert_eq!(tilde_path_with_home(Path::new("/etc/profile"), Some(home)), "/etc/profile");
-    assert_eq!(tilde_path_with_home(Path::new("/etc/profile"), None), "/etc/profile");
+    assert_eq!(
+        tilde_path_with_home(Path::new("/home/user/.bashrc"), Some(home)),
+        "~/.bashrc"
+    );
+    assert_eq!(
+        tilde_path_with_home(Path::new("/etc/profile"), Some(home)),
+        "/etc/profile"
+    );
+    assert_eq!(
+        tilde_path_with_home(Path::new("/etc/profile"), None),
+        "/etc/profile"
+    );
 }
 
-const LEGACY_BLOCK: &str = "# >>> phpz >>>\nexport PATH=\"$HOME/.phpz/current/bin:$PATH\"\n# <<< phpz <<<\n";
+const LEGACY_BLOCK: &str =
+    "# >>> phpz >>>\nexport PATH=\"$HOME/.phpz/current/bin:$PATH\"\n# <<< phpz <<<\n";
 
 #[test]
 fn a_block_from_phpz_0_2_is_brought_up_to_date_in_place() {
@@ -84,7 +100,8 @@ fn refreshing_twice_changes_nothing_the_second_time() {
 
 #[test]
 fn a_hand_edited_block_body_is_replaced_too() {
-    let edited = "# >>> phpz >>>\nexport PATH=\"/somewhere/else:$PATH\"\nexport FOO=1\n# <<< phpz <<<\n";
+    let edited =
+        "# >>> phpz >>>\nexport PATH=\"/somewhere/else:$PATH\"\nexport FOO=1\n# <<< phpz <<<\n";
     assert_eq!(refresh_block(edited).unwrap().unwrap(), BLOCK);
 }
 

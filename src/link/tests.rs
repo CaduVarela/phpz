@@ -15,7 +15,10 @@ fn link_exposes_the_files_of_its_target() {
 
     replace_link(&target, &link).unwrap();
 
-    assert_eq!(fs::read_to_string(link.join("marker.txt")).unwrap(), "8.3.1");
+    assert_eq!(
+        fs::read_to_string(link.join("marker.txt")).unwrap(),
+        "8.3.1"
+    );
 }
 
 #[test]
@@ -28,7 +31,10 @@ fn replacing_a_link_switches_the_target() {
     replace_link(&first, &link).unwrap();
     replace_link(&second, &link).unwrap();
 
-    assert_eq!(fs::read_to_string(link.join("marker.txt")).unwrap(), "8.4.2");
+    assert_eq!(
+        fs::read_to_string(link.join("marker.txt")).unwrap(),
+        "8.4.2"
+    );
     assert_eq!(fs::read_link(&link).unwrap().file_name().unwrap(), "8.4.2");
 }
 
@@ -42,7 +48,10 @@ fn removing_a_link_keeps_the_target_and_its_files() {
     assert!(remove_link(&link).unwrap());
 
     assert!(!link.exists());
-    assert_eq!(fs::read_to_string(target.join("marker.txt")).unwrap(), "8.3.1");
+    assert_eq!(
+        fs::read_to_string(target.join("marker.txt")).unwrap(),
+        "8.3.1"
+    );
 }
 
 #[test]
