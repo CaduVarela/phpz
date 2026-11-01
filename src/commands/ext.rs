@@ -2,25 +2,20 @@ use clap::Subcommand;
 
 #[derive(Subcommand)]
 pub enum ExtCommands {
-    /// Enable a PHP extension
+    /// Enable a PHP extension (not available yet)
     Enable { name: String },
 
-    /// Disable a PHP extension
+    /// Disable a PHP extension (not available yet)
     Disable { name: String },
 }
 
 impl ExtCommands {
     pub fn run(self) {
-        match self {
-            ExtCommands::Enable { name } => {
-                println!("(ext) Enabling extension {}", name);
-                // TODO: parse php.ini and uncomment 'extension={name}'
-                // TODO: if not found, append 'extension={name}' to the Extensions section
-            }
-            ExtCommands::Disable { name } => {
-                println!("(ext) Disabling extension {}", name);
-                // TODO: parse php.ini and comment 'extension={name}'
-            }
-        }
+        eprintln!(
+            "Error: extension management is not available yet. \
+             The static PHP builds used by phpz ship a fixed set of extensions \
+             and cannot load external ones."
+        );
+        std::process::exit(1);
     }
 }
