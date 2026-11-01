@@ -2,7 +2,7 @@ use super::*;
 use std::path::PathBuf;
 
 fn selection(version: &str, origin: Origin) -> Selection {
-    Selection { version: version.to_string(), origin }
+    Selection { version: version.to_string(), origin, project: None }
 }
 
 #[test]

@@ -11,6 +11,7 @@ mod link;
 mod lock;
 mod paths;
 mod project;
+mod project_ini;
 mod pecl;
 mod pipe;
 mod selection;
