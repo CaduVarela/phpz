@@ -91,8 +91,10 @@ mod registry {
     /// Registry strings are UTF-16 with a terminating NUL.
     fn decode(bytes: &[u8]) -> String {
         let units: Vec<u16> = bytes
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes([pair[0], pair[1]]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .collect();
         String::from_utf16_lossy(&units).trim_end_matches('\0').to_string()
     }
