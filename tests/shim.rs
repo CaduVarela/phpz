@@ -299,7 +299,7 @@ fn sync_project_reports_what_the_version_lacks() {
     let install = run(&["ext", "sync", "--project", "--install"]);
     assert!(!install.status.success());
     assert!(
-        err(&install).contains("only available on Windows"),
+        err(&install).contains("cannot build extensions"),
         "{}",
         err(&install)
     );
