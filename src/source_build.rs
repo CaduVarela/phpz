@@ -381,6 +381,47 @@ pub enum Verdict {
     Unknown,
 }
 
+/// Fingerprints of the PHP release managers, as listed in php-keyring.gpg when they were pinned.
+const RELEASE_MANAGER_FINGERPRINTS: &[&str] = &[
+    "1198C0117593497A5EC5C199286AF1F9897469DC", // Pierrick Charron
+    "39B641343D8C104B2B146DC3F9C39DC0B9698544", // Ben Ramsey
+    "5A52880781F755608BF815FC910DEB46F53EA312", // Derick Rethans
+    "E60913E4DF209907D8E30D96659A97C9CF2A795A", // Sergey Panteleev
+    "AFD8691FDAEDF03BDF6E460563F15A9B715376CA", // Eric A Mann
+    "C28D937575603EB4ABB725861C0779DC5C0A9DE4", // Jakub Zelenka
+    "F1F692238FBC1666E5A5CCD4199F9DFEF6FFBAFD", // Patrick Allaert
+    "1729F83938DA44E27BA0F4D3DBDB397470D12172", // Sara Golemon
+    "B1B44D8F021E4E2D6021E995DC9FF8D3EE5AF27F", // Remi Collet
+    "CBAF69F173A0FEA4B537F470D66C9593118BCCB6", // Christoph M. Becker
+    "F38252826ACD957EF380D39F2F7956BC5DA04B5D", // Stanislav Malyshev
+    "528995BFEDFBA7191D46839EF9BA0ADA31CBD89E", // Joe Watkins
+    "2C16C765DBE54A088130F1BC4B9B5F600B55F3B4", // Gabriel Caruso
+    "BFDDD28642824F8118EF77909B67A5C12229118F", // Gabriel Caruso
+    "9D7F99A0CB8F05C8A6958D6256A97AF7600A39A6", // Calvin Buckley
+    "0616E93D95AF471243E26761770426E17EBBB3DD", // Saki Takamachi
+    "D95C03BC702BE9515344AE3374E44BC9067701A5", // Daniel Scherzer
+    "49D9AF6BC72A80D6691719C8AA23F5BE9C7097D4", // Volker Dusch
+    "016895DE9A475111D537A6E69134FF30BC5A99B5", // Matteo Beccati
+    "5CFF17B64DC1C244F5D0EAC3E43535E2EB19010E", // Joe Ferguson
+];
+
+/// How far the signature of the source could be trusted.
+#[derive(Debug, PartialEq)]
+pub enum Signature {
+    NotChecked,
+    Pinned,
+    Unrecognized(String),
+}
+
+/// The fingerprint of the key that made a good signature, from `gpg --status-fd` output.
+pub fn signing_fingerprint(status: &str) -> Option<String> {
+    status
+        .lines()
+        .find_map(|line| line.strip_prefix("[GNUPG:] VALIDSIG "))
+        .and_then(|rest| rest.split_whitespace().last())
+        .map(str::to_uppercase)
+}
+
 /// What `gpg --verify` said.
 pub fn signature_verdict(output: &str) -> Verdict {
     if output.contains("BAD signature") {
@@ -392,14 +433,14 @@ pub fn signature_verdict(output: &str) -> Verdict {
     }
 }
 
-/// Check the archive against its detached signature. False when gpg is not installed.
+/// Check the archive against its detached signature and say whether the signer is a pinned key.
 pub fn verify_signature(
     release: &SourceRelease,
     archive: &Path,
     work_directory: &Path,
-) -> Result<bool, String> {
+) -> Result<Signature, String> {
     if !tool_exists("gpg") {
-        return Ok(false);
+        return Ok(Signature::NotChecked);
     }
     let fetch = |url: &str, name: &str| -> Result<PathBuf, String> {
         let bytes = reqwest::blocking::get(url)
@@ -432,13 +473,21 @@ pub fn verify_signature(
         ))
     };
     gpg(&["--quiet".as_ref(), "--import".as_ref(), keyring.as_os_str()])?;
-    let verdict = signature_verdict(&gpg(&[
+    let report = gpg(&[
+        "--status-fd".as_ref(),
+        "1".as_ref(),
         "--verify".as_ref(),
         signature.as_os_str(),
         archive.as_os_str(),
-    ])?);
-    match verdict {
-        Verdict::Good => Ok(true),
+    ])?;
+    match signature_verdict(&report) {
+        Verdict::Good => Ok(match signing_fingerprint(&report) {
+            Some(fingerprint) if RELEASE_MANAGER_FINGERPRINTS.contains(&fingerprint.as_str()) => {
+                Signature::Pinned
+            }
+            Some(fingerprint) => Signature::Unrecognized(fingerprint),
+            None => Signature::Unrecognized("unknown".to_string()),
+        }),
         Verdict::Bad => {
             Err("the signature of the PHP source is BAD; nothing was built".to_string())
         }

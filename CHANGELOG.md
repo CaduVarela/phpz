@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `phpz use` without a version switches to the version the current folder pins.
 - `phpz prune` removes the settings generated for projects that no longer exist (`--dry-run` only lists them).
+- `install --build` compares the signing key with the PHP release managers' fingerprints built into phpz, and asks before building from a source signed by any other key.
 
 ## [0.3.0] - 2026-11-01
 

@@ -8,6 +8,7 @@ use tar::Archive;
 use std::collections::BTreeSet;
 
 use crate::settings::Settings;
+use crate::source_build::Signature;
 use crate::variant::{self, Origin, Variant};
 use crate::version::Build;
 use crate::{
@@ -33,7 +34,7 @@ pub fn run(
     jobs: Option<usize>,
 ) {
     let result = if build {
-        install_from_source(&version, replace, jobs)
+        install_from_source(&version, replace, jobs, allow_unverified)
     } else if replace && variant.is_none() {
         Err(
             "--replace needs --variant (or --build) to say what to switch the version to"
@@ -233,6 +234,7 @@ fn install_from_source(
     requested_version: &str,
     replace: bool,
     jobs: Option<usize>,
+    allow_unverified: bool,
 ) -> Result<(), String> {
     if !cfg!(target_os = "linux") {
         return Err("--build is available on Linux only for now.".to_string());
@@ -331,6 +333,7 @@ fn install_from_source(
         &plan,
         jobs,
         &log_path,
+        allow_unverified,
     )
     .and_then(|tree| {
         let _ = fs::remove_dir_all(&temporary_directory);
@@ -392,15 +395,21 @@ fn compile_and_stage(
     plan: &source_build::Plan,
     jobs: usize,
     log_path: &Path,
+    allow_unverified: bool,
 ) -> Result<std::path::PathBuf, String> {
     let archive = work_directory.join("php.tar.gz");
     download::fetch(&release.url, &archive, Some(&release.sha256))?;
     println!("Verified SHA-256 checksum");
     match source_build::verify_signature(release, &archive, work_directory)? {
-        true => println!("Verified the PGP signature with the keyring from php.net"),
-        false => println!(
+        Signature::Pinned => {
+            println!("Verified the PGP signature against the pinned release manager keys")
+        }
+        Signature::NotChecked => println!(
             "Note: gpg was not found, so the PGP signature was not checked (the SHA-256 was)."
         ),
+        Signature::Unrecognized(fingerprint) => {
+            consent::require_known_signer(&fingerprint, allow_unverified)?
+        }
     }
 
     let source = source_build::unpack(&archive, &work_directory.join("src"))?;
