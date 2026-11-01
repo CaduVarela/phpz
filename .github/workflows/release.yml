@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, target: x86_64-unknown-linux-musl, asset: phpz-linux-x64 }
+          - { runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, asset: phpz-linux-arm64 }
+          - { runner: macos-13, target: x86_64-apple-darwin, asset: phpz-macos-x64 }
+          - { runner: macos-latest, target: aarch64-apple-darwin, asset: phpz-macos-arm64 }
+          - { runner: windows-latest, target: x86_64-pc-windows-msvc, asset: phpz-windows-x64.exe }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install
+      - run: rustup target add ${{ matrix.target }}
+      - if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - run: cargo build --release --locked --target ${{ matrix.target }}
+      - name: Name the binary
+        shell: bash
+        run: |
+          mkdir dist
+          extension=""
+          if [[ "${{ matrix.target }}" == *windows* ]]; then extension=".exe"; fi
+          cp "target/${{ matrix.target }}/release/phpz$extension" "dist/${{ matrix.asset }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum phpz-* > SHA256SUMS
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" dist/* --repo "${{ github.repository }}" --title "${{ github.ref_name }}" --generate-notes
