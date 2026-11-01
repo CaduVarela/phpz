@@ -1,6 +1,10 @@
 mod static_php;
 mod windows_php;
 
+use std::collections::BTreeSet;
+
+use crate::variant::Variant;
+
 /// (major, minor, patch)
 type Version = (u32, u32, u32);
 
@@ -15,6 +19,10 @@ pub struct Build {
     sbom_url: Option<String>,
     /// The source normally publishes a checksum, so a build without one is out of the ordinary.
     pub expects_checksum: bool,
+    /// Which static-php build this is. Windows has only the official one.
+    pub variant: Option<Variant>,
+    /// Download size as the server shows it, such as "11.2M".
+    pub size: Option<String>,
 }
 
 impl Build {
@@ -48,11 +56,11 @@ fn parse_version(text: &str) -> Option<Version> {
 /// Windows uses the official windows.php.net builds. Its cheap list holds the newest release of
 /// each series; `include_history` also reads the large archive page. Other systems use
 /// static-php-cli, whose single index already holds every version.
-fn available_builds(include_history: bool) -> Result<Vec<Build>, String> {
+fn available_builds(include_history: bool, variant: Variant) -> Result<Vec<Build>, String> {
     let mut builds = if cfg!(windows) {
         windows_php::builds(include_history)?
     } else {
-        static_php::builds()?
+        static_php::builds(variant)?
     };
     builds.sort_by_key(|build| build.version);
     builds.dedup_by_key(|build| build.version);
@@ -61,23 +69,23 @@ fn available_builds(include_history: bool) -> Result<Vec<Build>, String> {
 
 /// Versions available for download, as "MAJOR.MINOR.PATCH" strings, sorted ascending.
 /// With `include_history`, Windows also lists the older patches.
-pub fn available_version_names(include_history: bool) -> Result<Vec<String>, String> {
-    Ok(available_builds(include_history)?
+pub fn available_version_names(include_history: bool, variant: Variant) -> Result<Vec<String>, String> {
+    Ok(available_builds(include_history, variant)?
         .iter()
         .map(Build::version_name)
         .collect())
 }
 
 /// Resolve "8", "8.2" or "8.3.9" to the newest matching build, with its checksum if one is published.
-pub fn resolve_build(input: &str) -> Result<Build, String> {
+pub fn resolve_build(input: &str, variant: Variant) -> Result<Build, String> {
     let requested = parse_request(input)?;
     let no_build = || format!("no PHP build found for version '{}'", input);
 
     // A series or minor always resolves to its newest release, which the cheap list holds.
     // Only an exact older patch needs the archive page.
-    let mut build = match find_build(&available_builds(false)?, &requested) {
+    let mut build = match find_build(&available_builds(false, variant)?, &requested) {
         Some(build) => build.clone(),
-        None if cfg!(windows) => find_build(&available_builds(true)?, &requested)
+        None if cfg!(windows) => find_build(&available_builds(true, variant)?, &requested)
             .ok_or_else(no_build)?
             .clone(),
         None => return Err(no_build()),
@@ -89,6 +97,19 @@ pub fn resolve_build(input: &str) -> Result<Build, String> {
         }
     }
     Ok(build)
+}
+
+/// The newest build of one variant for this system.
+pub fn newest_build(variant: Variant) -> Result<Build, String> {
+    available_builds(false, variant)?
+        .into_iter()
+        .last()
+        .ok_or_else(|| format!("no {} build was found", variant.name()))
+}
+
+/// The extensions one static-php build was compiled with.
+pub fn variant_extensions(variant: Variant) -> Result<BTreeSet<String>, String> {
+    static_php::extensions(variant)
 }
 
 /// "8", "8.2" or "8.3.9" as numbers.

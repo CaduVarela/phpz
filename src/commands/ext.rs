@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use clap::Subcommand;
 
 use crate::extensions::{self, Outcome};
-use crate::{extension_install, pecl};
+use crate::commands::install;
+use crate::variant::{self, Variant};
+use crate::{extension_install, interaction, pecl, version};
 use crate::ini::IniDocument;
 use crate::project::{Project, PROJECT_FILE};
 use crate::settings::Settings;
@@ -178,6 +180,9 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
             return Err(format!("{} is built into PHP {} and cannot be disabled.", name, version.name))
         }
         Outcome::Unavailable => {
+            if enable && !cfg!(windows) && suggest_larger_build(&version, &name)? {
+                return toggle(&name, enable, global);
+            }
             let reason = if available.is_empty() {
                 "This build has a fixed set of extensions.".to_string()
             } else {
@@ -200,6 +205,53 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
         println!("Saved {} as {} in your global settings. Every version you install or sync gets it.", name, state);
     }
     Ok(())
+}
+
+/// On a static build an extension can only come with another build. Say which build has it and
+/// what that build lacks, and switch only if the person agrees. True when the version was switched.
+fn suggest_larger_build(version: &ActiveVersion, name: &str) -> Result<bool, String> {
+    let current = variant::read(&version.directory);
+
+    let mut found = None;
+    for candidate in Variant::ALL {
+        if candidate == current || variant::runs_here(candidate).is_err() {
+            continue;
+        }
+        let Ok(extensions) = version::variant_extensions(candidate) else {
+            continue;
+        };
+        // The exact version has to be published in that build too (gnu-bulk starts at 8.1.33).
+        if extensions.contains(name) && version::resolve_build(&version.name, candidate).is_ok() {
+            found = Some((candidate, extensions));
+            break;
+        }
+    }
+    let Some((target, target_extensions)) = found else {
+        return Ok(false);
+    };
+
+    let current_extensions = version::variant_extensions(current).unwrap_or_default();
+    let lost = variant::lost_by_switching(&current_extensions, &target_extensions);
+    eprintln!("{} is not in the {} build of PHP {}, but the {} build has it.", name, current.name(), version.name, target.name());
+    if !lost.is_empty() {
+        eprintln!("That build lacks {}, which this one has.", lost.join(", "));
+    }
+
+    let command = format!("phpz install {} --variant {} --replace", version.name, target.name());
+    if !interaction::is_interactive() {
+        eprintln!("To switch, run: {}", command);
+        return Ok(false);
+    }
+    match interaction::confirm(&format!("Switch PHP {} to the {} build now?", version.name, target.name()), false) {
+        Some(true) => {
+            install::switch_build(&version.name, target)?;
+            Ok(true)
+        }
+        _ => {
+            eprintln!("Not switched. To do it later, run: {}", command);
+            Ok(false)
+        }
+    }
 }
 
 const WINDOWS_ONLY: &str = "installing extensions is only available on Windows for now. \
@@ -283,6 +335,15 @@ fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
     }
 }
 
+/// What to do about wished extensions a version does not have.
+fn missing_hint() -> &'static str {
+    if cfg!(windows) {
+        "Run 'phpz ext sync --install' to download the missing ones."
+    } else {
+        "Some of these may exist in a larger build: 'phpz ext enable <name>' offers to switch, and 'phpz variants' lists the builds."
+    }
+}
+
 fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> {
     if install && !cfg!(windows) {
         return Err(WINDOWS_ONLY.to_string());
@@ -335,8 +396,8 @@ fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> 
                 for line in &lines {
                     println!("  {}", line);
                 }
-                if report.has_unavailable() && !install && cfg!(windows) {
-                    println!("  Run 'phpz ext sync --install' to download the missing ones.");
+                if report.has_unavailable() && !install {
+                    println!("  {}", missing_hint());
                 }
             }
             Ok(None) => {}
