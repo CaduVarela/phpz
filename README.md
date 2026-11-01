@@ -2,15 +2,15 @@
 
 <p align="center">A PHP version manager with extensions that follow your projects.</p>
 
+<div align="center">
+  <img src="docs/assets/demo.svg" alt="phpz installing PHP 8.3 and using PHP 8.2 inside one project folder" width="720">
+</div>
+
 <p align="center">
   <a href="https://github.com/CaduVarela/phpz/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/CaduVarela/phpz/actions/workflows/ci.yml/badge.svg"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Linux, macOS and Windows" src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg">
 </p>
-
-<div align="center">
-  <img src="docs/assets/demo.svg" alt="phpz installing PHP 8.3 and using PHP 8.2 inside one project folder" width="720">
-</div>
 
 ## Install
 
