@@ -1,0 +1,165 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "metadata": {
+    "component": {
+      "type": "application",
+      "bom-ref": "pkg:generic/php@8.2.34",
+      "name": "php",
+      "version": "8.2.34",
+      "purl": "pkg:generic/php@8.2.34",
+      "cpe": "cpe:2.3:a:php:php:8.2.34:*:*:*:*:*:*:*",
+      "supplier": {
+        "name": "PHP Group"
+      },
+      "licenses": [
+        {
+          "license": {
+            "id": "PHP-3.01"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "php:dependency-sbom-status",
+          "value": "present"
+        },
+        {
+          "name": "php:artifact-file-name",
+          "value": "php-8.2.34-nts-Win32-vs16-x64.zip"
+        },
+        {
+          "name": "php:artifact-download-location",
+          "value": "https://downloads.php.net/~windows/releases/php-8.2.34-nts-Win32-vs16-x64.zip"
+        },
+        {
+          "name": "php:artifact-architecture",
+          "value": "x64"
+        },
+        {
+          "name": "php:artifact-thread-safety",
+          "value": "nts"
+        },
+        {
+          "name": "php:artifact-compiler",
+          "value": "vs16"
+        }
+      ],
+      "copyright": "Copyright (c) 1999 - 2024 The PHP Group. All rights reserved.",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "03249b5c9414c6dbe30276f4a7598bd9d2a7417ee81f709b06b99e9c4a2aff4f"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://downloads.php.net/~windows/releases/php-8.2.34-nts-Win32-vs16-x64.zip"
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:generic/berkeley-uuencode",
+      "name": "Berkeley uuencode",
+      "version": "snapshot-25636b9321c2",
+      "copyright": "See accompanying license and notice files.",
+      "supplier": {
+        "name": "PHP Group"
+      },
+      "purl": "pkg:generic/berkeley-uuencode",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-4-Clause-UC"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "25636b9321c2859ac28ee4ad7148270ebccaa79143777b623d84985622875597"
+        }
+      ],
+      "properties": [
+        {
+          "name": "php:component-origin",
+          "value": "bundled"
+        },
+        {
+          "name": "php:source-artifact",
+          "value": "php-8.2.34 source tree"
+        },
+        {
+          "name": "php:source-path",
+          "value": "ext/standard/uuencode.c"
+        },
+        {
+          "name": "php:source-digest-algorithm",
+          "value": "SHA-256"
+        },
+        {
+          "name": "php:source-digest",
+          "value": "25636b9321c2859ac28ee4ad7148270ebccaa79143777b623d84985622875597"
+        },
+        {
+          "name": "php:source-digest-format",
+          "value": "file-content-v1"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:generic/boost-context-assembly",
+      "name": "Boost.Context assembly",
+      "version": "snapshot-20b96f6ebcd9",
+      "copyright": "See accompanying license and notice files.",
+      "supplier": {
+        "name": "PHP Group"
+      },
+      "purl": "pkg:generic/boost-context-assembly",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSL-1.0"
+          }
+        }
+      ],
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "20b96f6ebcd9fe672464b5ff24d28eeb529afedd12fedc3fef835db5094621a8"
+        }
+      ],
+      "properties": [
+        {
+          "name": "php:component-origin",
+          "value": "bundled"
+        },
+        {
+          "name": "php:source-artifact",
+          "value": "php-8.2.34 source tree"
+        },
+        {
+          "name": "php:source-path",
+          "value": "Zend/asm"
+        },
+        {
+          "name": "php:source-digest-algorithm",
+          "value": "SHA-256"
+        },
+        {
+          "name": "php:source-digest",
+          "value": "20b96f6ebcd9fe672464b5ff24d28eeb529afedd12fedc3fef835db5094621a8"
+        },
+        {
+          "name": "php:source-digest-format",
+          "value": "relative-path-and-file-sha256-v1"
+        }
+      ]
+    }
+  ]
+}

@@ -51,6 +51,7 @@ pub fn builds() -> Result<Vec<Build>, String> {
                 version: parse_version(version)?,
                 url: format!("{}/{}", BASE_URL, entry.name),
                 sha256: None,
+                sbom_url: None,
             })
         })
         .collect())

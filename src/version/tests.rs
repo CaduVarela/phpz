@@ -9,12 +9,16 @@ fn builds(versions: &[Version]) -> Vec<Build> {
             version,
             url: String::new(),
             sha256: None,
+            sbom_url: None,
         })
         .collect()
 }
 
 fn selected(input: &str) -> Result<String, String> {
-    select_build(&builds(AVAILABLE), input).map(Build::version_name)
+    let requested = parse_request(input)?;
+    find_build(&builds(AVAILABLE), &requested)
+        .map(Build::version_name)
+        .ok_or_else(|| format!("no PHP build found for version '{}'", input))
 }
 
 #[test]
@@ -53,8 +57,9 @@ fn selected_build_keeps_its_url_and_checksum() {
         version: (8, 3, 9),
         url: "https://example.test/php.zip".to_string(),
         sha256: Some("abc".to_string()),
+        sbom_url: None,
     }];
-    let build = select_build(&available, "8.3").unwrap();
+    let build = find_build(&available, &[8, 3]).unwrap();
     assert_eq!(build.url, "https://example.test/php.zip");
     assert_eq!(build.sha256.as_deref(), Some("abc"));
 }
