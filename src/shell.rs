@@ -57,6 +57,27 @@ pub fn add_block(content: &str) -> Option<String> {
     Some(updated)
 }
 
+/// Content without the phpz block (and the blank line `add_block` put before it).
+/// Ok(None) when there is no block; an error when the block is not closed.
+pub fn remove_block(content: &str) -> Result<Option<String>, String> {
+    let lines: Vec<&str> = content.split_inclusive('\n').collect();
+    let Some(start) = lines.iter().position(|line| line.trim() == BLOCK_START) else {
+        return Ok(None);
+    };
+    let end = lines[start..]
+        .iter()
+        .position(|line| line.trim() == BLOCK_END)
+        .map(|offset| start + offset)
+        .ok_or("found the start of the phpz block but not its end; remove it by hand")?;
+
+    let first_removed = if start > 0 && lines[start - 1].trim().is_empty() {
+        start - 1
+    } else {
+        start
+    };
+    Ok(Some([&lines[..first_removed], &lines[end + 1..]].concat().concat()))
+}
+
 pub fn is_configured(shell: &Shell) -> bool {
     shell
         .profile_path()
@@ -65,20 +86,33 @@ pub fn is_configured(shell: &Shell) -> bool {
         .unwrap_or(false)
 }
 
+fn read_profile(profile: &Path) -> Result<String, String> {
+    match fs::read_to_string(profile) {
+        Ok(content) => Ok(content),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(String::new()),
+        Err(error) => Err(format!("reading {}: {}", profile.display(), error)),
+    }
+}
+
+/// Written in place (no temporary file) so symlinked dotfiles keep working.
+fn write_profile(profile: &Path, content: String) -> Result<(), String> {
+    fs::write(profile, content).map_err(|error| format!("writing {}: {}", profile.display(), error))
+}
+
 /// Add the phpz block to the shell profile. Returns false when it was already there.
 pub fn configure(shell: &Shell) -> Result<bool, String> {
     let profile = shell.profile_path()?;
-    let existing = match fs::read_to_string(&profile) {
-        Ok(content) => content,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
-        Err(error) => return Err(format!("reading {}: {}", profile.display(), error)),
-    };
+    match add_block(&read_profile(&profile)?) {
+        Some(updated) => write_profile(&profile, updated).map(|_| true),
+        None => Ok(false),
+    }
+}
 
-    match add_block(&existing) {
-        // Written in place (no temporary file) so symlinked dotfiles keep working.
-        Some(updated) => fs::write(&profile, updated)
-            .map(|_| true)
-            .map_err(|error| format!("writing {}: {}", profile.display(), error)),
+/// Remove the phpz block from the shell profile. Returns false when there was none.
+pub fn unconfigure(shell: &Shell) -> Result<bool, String> {
+    let profile = shell.profile_path()?;
+    match remove_block(&read_profile(&profile)?)? {
+        Some(updated) => write_profile(&profile, updated).map(|_| true),
         None => Ok(false),
     }
 }

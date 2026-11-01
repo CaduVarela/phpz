@@ -39,7 +39,11 @@ pub enum Commands {
     /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
     Env,
     /// Add phpz to your PATH by editing your shell profile
-    Setup,
+    Setup {
+        /// Remove phpz from your shell profile instead
+        #[arg(long)]
+        undo: bool,
+    },
     /// Print a shell completion script (bash, zsh, fish, elvish, powershell)
     Completions { shell: Shell },
     /// Read and edit the active version's php.ini
@@ -65,7 +69,7 @@ impl Commands {
             Commands::Reset => reset::run(),
             Commands::Current => current::run(),
             Commands::Env => env::run(),
-            Commands::Setup => setup::run(),
+            Commands::Setup { undo } => setup::run(undo),
             Commands::Completions { shell } => completions::run(shell),
             Commands::Config { command } => command.run(),
             Commands::Ext { command } => command.run(),
