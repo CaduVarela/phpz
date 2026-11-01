@@ -159,3 +159,18 @@ fn nothing_selected_is_reported_without_failing_current() {
     assert!(output.status.success());
     assert!(out(&output).contains("No PHP version is active"));
 }
+
+#[test]
+fn use_without_a_version_activates_the_one_the_folder_pins() {
+    let (home, work) = setup();
+    fs::write(work.path().join(".php-version"), "8.2\n").unwrap();
+
+    let output = phpz(home.path(), work.path(), &["use"]);
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(out(&output).contains("Now using PHP 8.2.35"));
+
+    let elsewhere = tempfile::tempdir().unwrap();
+    let output = phpz(home.path(), elsewhere.path(), &["use"]);
+    assert!(!output.status.success());
+    assert!(err(&output).contains("no version given"));
+}

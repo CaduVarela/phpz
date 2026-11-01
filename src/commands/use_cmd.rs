@@ -2,15 +2,32 @@ use crate::environment;
 use crate::installed::find_installed;
 use crate::link;
 use crate::paths;
+use crate::project;
 use crate::selection::{self, Origin};
 use crate::{shell, shim};
 
-/// Switch the active PHP version
-pub fn run(version: String) {
-    if let Err(error) = activate(&version) {
+/// Switch the active PHP version, or the one the project pins when none is given
+pub fn run(version: Option<String>) {
+    let outcome = match version {
+        Some(version) => activate(&version),
+        None => pinned_request().and_then(|request| activate(&request)),
+    };
+    if let Err(error) = outcome {
         eprintln!("Error: {}", error);
         std::process::exit(1);
     }
+}
+
+fn pinned_request() -> Result<String, String> {
+    let here = std::env::current_dir()
+        .map_err(|error| format!("could not read the current directory: {}", error))?;
+    project::find(&here)?
+        .and_then(|project| project.php)
+        .map(|pinned| pinned.request)
+        .ok_or_else(|| {
+            "no version given and no .php-version or .phpz.toml with a version found here"
+                .to_string()
+        })
 }
 
 fn activate(requested: &str) -> Result<(), String> {
