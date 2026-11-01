@@ -5,7 +5,7 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar::Archive;
 
-use crate::{paths, version};
+use crate::{paths, shell, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -59,6 +59,7 @@ fn install(requested_version: &str) -> Result<(), String> {
     }
 
     println!("Successfully installed PHP {}", resolved_version);
+    shell::offer_setup();
     Ok(())
 }
 

@@ -3,6 +3,7 @@ use std::path::Path;
 
 use crate::installed::find_installed;
 use crate::paths;
+use crate::shell::{self, Shell};
 
 /// Switch the active PHP version
 pub fn run(version: String) {
@@ -20,8 +21,13 @@ fn activate(requested: &str) -> Result<(), String> {
     replace_link(&target, &link)?;
 
     println!("Now using PHP {}", version);
-    if !is_on_path(&link.join("bin")) {
-        println!("Note: add phpz to your PATH with: eval \"$(phpz env)\"");
+    if !shell::path_is_active() {
+        match Shell::detect() {
+            Some(shell) if shell::is_configured(&shell) => {
+                println!("Note: open a new terminal to pick up the change.")
+            }
+            _ => println!("Note: run 'phpz setup' to add phpz to your PATH."),
+        }
     }
     Ok(())
 }
@@ -42,10 +48,4 @@ fn replace_link(target: &Path, link: &Path) -> Result<(), String> {
 #[cfg(not(unix))]
 fn replace_link(_target: &Path, _link: &Path) -> Result<(), String> {
     Err("switching versions is not implemented on this platform yet".to_string())
-}
-
-fn is_on_path(directory: &Path) -> bool {
-    std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).any(|entry| entry == directory))
-        .unwrap_or(false)
 }
