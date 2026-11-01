@@ -2,6 +2,7 @@ pub mod install;
 pub mod uninstall;
 pub mod use_cmd;
 pub mod list;
+pub mod list_remote;
 pub mod reset;
 pub mod current;
 pub mod env;
@@ -19,6 +20,13 @@ pub enum Commands {
     Uninstall { version: String },
     Use { version: String },
     List,
+    /// List versions available for download (newest patch of each minor by default)
+    #[command(name = "ls-remote")]
+    ListRemote {
+        /// Show every patch version
+        #[arg(long)]
+        all: bool,
+    },
     Reset,
     Current,
     /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
@@ -42,6 +50,7 @@ impl Commands {
             Commands::Uninstall { version } => uninstall::run(version),
             Commands::Use { version } => use_cmd::run(version),
             Commands::List => list::run(),
+            Commands::ListRemote { all } => list_remote::run(all),
             Commands::Reset => reset::run(),
             Commands::Current => current::run(),
             Commands::Env => env::run(),

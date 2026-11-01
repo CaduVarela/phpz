@@ -73,6 +73,14 @@ fn available_versions() -> Result<Vec<Version>, String> {
     Ok(versions)
 }
 
+/// Versions available for download, as "MAJOR.MINOR.PATCH" strings, sorted ascending.
+pub fn available_version_names() -> Result<Vec<String>, String> {
+    Ok(available_versions()?
+        .into_iter()
+        .map(|(major, minor, patch)| format!("{}.{}.{}", major, minor, patch))
+        .collect())
+}
+
 /// Resolve user input to a full version string.
 /// - "8"     -> latest 8.x.y
 /// - "8.2"   -> latest 8.2.y
