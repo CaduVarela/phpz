@@ -22,6 +22,9 @@ fn update(check_only: bool, requested: Option<String>) -> Result<(), String> {
     let target = release::parse_version(&tag)
         .ok_or_else(|| format!("'{}' is not a release version", tag))?;
 
+    if let Ok(executable) = std::env::current_exe() {
+        let _ = fs::remove_file(executable.with_extension("old"));
+    }
     if target == current {
         println!("phpz {} is already installed.", env!("CARGO_PKG_VERSION"));
         return Ok(());
