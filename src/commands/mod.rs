@@ -36,11 +36,11 @@ pub enum Commands {
     Reset,
     /// Show the active PHP version
     Current,
-    /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
+    /// Print shell code to put the active version on PATH (eval "$(phpz env)", or in PowerShell: phpz env | Invoke-Expression)
     Env,
     /// Add phpz to your PATH
     Setup {
-        /// Remove phpz from your shell profile instead
+        /// Remove phpz from your PATH setup instead
         #[arg(long)]
         undo: bool,
     },
