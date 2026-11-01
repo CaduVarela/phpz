@@ -1,5 +1,5 @@
-//! The `php` shim, run for real: the phpz binary under the name `php`, in front of "versions" that
-//! are shell scripts. Unix only, because a script cannot stand in for php.exe.
+// The `php` shim, run for real: the phpz binary under the name `php`, in front of "versions" that
+// are shell scripts. Unix only, because a script cannot stand in for php.exe.
 #![cfg(unix)]
 
 use std::fs;
