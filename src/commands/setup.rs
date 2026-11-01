@@ -1,11 +1,8 @@
 use crate::platform::shell::SetupTarget;
 
 /// Add phpz to your PATH (or remove it with `undo`)
-pub fn run(undo: bool) {
-    if let Err(error) = setup(undo) {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run(undo: bool) -> Result<(), String> {
+    setup(undo)
 }
 
 fn setup(undo: bool) -> Result<(), String> {

@@ -41,16 +41,12 @@ pub fn run(
     replace: bool,
     build: bool,
     jobs: Option<usize>,
-) {
-    let result = match version {
+) -> Result<(), String> {
+    match version {
         Some(version) => {
             install_requested(&version, allow_unverified, variant, replace, build, jobs)
         }
         None => install_for_project(allow_unverified, variant, replace, build, jobs),
-    };
-    if let Err(error) = result {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
     }
 }
 

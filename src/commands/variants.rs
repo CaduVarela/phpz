@@ -4,11 +4,8 @@ use crate::php::variant::{self, Variant};
 use crate::php::version;
 
 /// Show the builds of PHP that can be installed and what each one has
-pub fn run() {
-    if let Err(error) = show() {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run() -> Result<(), String> {
+    show()
 }
 
 fn show() -> Result<(), String> {

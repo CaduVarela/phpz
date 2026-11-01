@@ -4,11 +4,8 @@ use crate::php::installed;
 use crate::platform::paths;
 
 /// Remove an installed PHP version
-pub fn run(version: String) {
-    if let Err(error) = uninstall(&version) {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run(version: &str) -> Result<(), String> {
+    uninstall(version)
 }
 
 fn uninstall(version: &str) -> Result<(), String> {
