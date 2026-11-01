@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="306" viewBox="0 0 720 306" role="img" aria-label="phpz installing PHP 8.3, then using PHP 8.2 inside one project folder">
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="294" viewBox="0 0 720 294" role="img" aria-label="phpz installing PHP 8.3, then using PHP 8.2 inside one project folder">
 <style>
 text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",monospace;white-space:pre}
 .p{fill:#7ee787;font-size:15px;font-weight:700} .cmd{fill:#ffffff;font-size:15px;font-weight:700}
@@ -19,7 +19,7 @@ text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",m
 @keyframes o8{0%,38.099%{opacity:0}38.109%,97%{opacity:1}100%{opacity:0}}#o8{animation:o8 11.68s steps(1,end) infinite}
 @keyframes o9{0%,38.442%{opacity:0}38.452%,97%{opacity:1}100%{opacity:0}}#o9{animation:o9 11.68s steps(1,end) infinite}
 </style>
-<rect width="720" height="306" rx="10" fill="#0d1117"/>
+<rect width="720" height="294" rx="10" fill="#0d1117"/>
 <rect width="720" height="36" rx="10" fill="#161b22"/><rect y="26" width="720" height="10" fill="#161b22"/>
 <circle cx="22" cy="18" r="6" fill="#ff5f56"/><circle cx="42" cy="18" r="6" fill="#ffbd2e"/><circle cx="62" cy="18" r="6" fill="#27c93f"/>
 <text x="360.0" y="22" text-anchor="middle" class="title">phpz</text>

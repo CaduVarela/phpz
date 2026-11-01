@@ -8,9 +8,9 @@
   <img alt="Linux, macOS and Windows" src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg">
 </p>
 
-<p align="center">
+<div align="center">
   <img src="docs/assets/demo.svg" alt="phpz installing PHP 8.3 and using PHP 8.2 inside one project folder" width="720">
-</p>
+</div>
 
 ## Install
 
