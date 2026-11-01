@@ -1,4 +1,7 @@
-//! Combinations of `install` options that are refused before anything is downloaded.
+// Combinations of `install` options that are refused before anything is downloaded.
+//
+// Not named after "install": Windows asks for administrator rights to run an executable
+// whose name has that word (or "setup", or "update") and no manifest, so the test would not run.
 
 use std::process::{Command, Output};
 
