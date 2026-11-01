@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `phpz ext list`, `phpz ext enable <name>` and `phpz ext disable <name>`. On Windows they switch the extensions that come as DLLs in the official zip, editing only the right line of `php.ini`. On Linux and macOS they report what is built into the static builds.
+- `phpz ext enable|disable <name> --global` keeps the choice in `~/.phpz/config.toml`. New installs apply it automatically and `phpz ext sync [--all]` applies it to installed versions. Extensions a version does not have are skipped with a message.
+
 ## [0.2.0] - 2026-11-01
 
 Adds Windows support.

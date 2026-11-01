@@ -14,7 +14,7 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 |---|---|---|---|
 | install, uninstall, list --remote, use, list, current, env, reset, setup, completions | done | untested | done |
 | config get, set, remove | done | untested | done |
-| ext enable, disable | exits with an explanatory error | same | same |
+| ext list, enable, disable, sync | list works; the extensions are all built in | same, untested | done for the extensions in the zip |
 
 ---
 
@@ -163,9 +163,28 @@ An earlier draft stored the file in hash maps. That approach was dropped because
 
 Values are written exactly as the user typed them. phpz never adds quotes, because in `php.ini` a quoted value is a string while an unquoted one may be a constant expression such as `E_ALL & ~E_NOTICE`.
 
-### Extensions (planned)
+### Extensions
 
-`phpz ext enable|disable <name>` is not implemented. With the current static binaries it would have no effect, since extensions are compiled in and external ones cannot be loaded. It becomes meaningful when phpz supports builds that load `.so` files, for example an optional compile-from-source install. Until then the command exits with code 1 and an explanatory message.
+Easy control of extensions is a main goal: switch them in one command, and do not repeat the choice for every new PHP version.
+
+**Model.** Three sets are told apart for a version. *Shared* extensions are separate files that can be switched (on Windows, the `php_<name>.dll` files in `ext\`). *Built-in* extensions are compiled into the binary: always on, impossible to disable (on Linux and macOS every extension of the static builds is built in). *Loaded* is what `php -m` reports. From these, `phpz ext list` shows enabled, disabled, built in, and "enabled in php.ini but not loading" (a DLL that is missing or failed to load).
+
+**Commands.**
+- `phpz ext list`: the groups above for the active version.
+- `phpz ext enable|disable <name>`: for a shared extension, edits `php.ini`. Enabling uncomments the template's own line when there is one, and otherwise adds a line next to the other extension lines. Disabling comments the line out instead of deleting it, so enable followed by disable restores the file byte for byte. Built-in ones answer that they are always on or cannot be disabled; unknown ones are reported as unavailable, with a reason that depends on the build.
+- `--global`: also records the choice in `~/.phpz/config.toml` (`[extensions]` with `enable` and `disable` lists, a name living in one list only). A name is saved only after it was found in the active version, so a typo never reaches the file.
+- `phpz ext sync [--all]`: applies the saved choices to the active version, or to every installed one.
+- `phpz install` applies them to the version it just laid out, before it becomes visible. This is best effort: a broken `config.toml` prints a note and the install still succeeds.
+
+**Why the settings are applied to each `php.ini`.** The same file serves versions with different extensions, so an extension a version lacks is skipped with a message and never fails anything. Applying is idempotent.
+
+**Details that bite.**
+- Extension spellings are normalized: `curl`, `php_curl.dll`, `curl.so` and a full path are the same extension, and `gd2` is `gd` (PHP 7.0 to 7.3 call GD `gd2` and ship `php_gd2.dll`, while PHP reports it as `gd`).
+- `opcache` and `xdebug` are loaded with `zend_extension`, not `extension`. `php -m` lists OPcache as "Zend OPcache".
+- PHP 7.0 and 7.1 spell lines as `extension=php_curl.dll`, later versions as `extension=curl`; a new line copies the style already in the file.
+- `php -m` runs with the version's own `PHPRC` and without `PHP_INI_SCAN_DIR`, so a variable left by another PHP (Scoop) cannot change what phpz reports. It runs at most once per command, and only when a built-in check needs it.
+
+**Not done yet.** Extensions that do not ship with PHP (xdebug, redis, apcu, imagick). On Windows they would be downloaded from `downloads.php.net/~windows/pecl/releases/<ext>/<version>/php_<ext>-<version>-<php series>-nts-<vs16|vs17>-x64.zip`, a layout verified for xdebug and redis. That server publishes no checksums; the xdebug.org per-DLL hashes belong to a different build, and GitHub release assets expose a `digest`. The checksum consent rule already in `install` fits this: without a published hash, ask, and remember the hash on first use. On Linux and macOS a static build cannot load `.so` files at all, so this needs a different build (see the research notes). Per-project settings come with the per-project version feature, and should accept extension names only, never paths, because a project file that can load arbitrary files is a risk.
 
 ### Profiles (planned)
 
@@ -186,6 +205,8 @@ src/
   shell.rs           SetupTarget: shell profile block (Unix) or user PATH (Windows), first-install question
   user_path.rs       text edits of the Windows PATH and its registry access
   environment.rs     warning about PHP ini variables that break isolation
+  extensions.rs      shared / built-in / loaded extensions, enable, disable, applying settings
+  settings.rs        ~/.phpz/config.toml (global extension choices)
   interaction.rs     interactive terminal check and the yes/no question
   pipe.rs            quiet exit when the reader of our output goes away
   ini.rs             line-preserving php.ini editor
@@ -214,7 +235,43 @@ Closing the output pipe early (`phpz list --remote | head -1`) used to end in a 
 
 - A `php.exe` shim that clears the ini variables, replacing the Windows warning.
 - Download integrity verification with pinned checksums on Linux and macOS, and for the older Windows patches that publish none.
-- Optional compile-from-source install for custom extensions, which would also enable `phpz ext`.
+- Extensions that do not ship with PHP, starting with Windows (see Extensions).
+- On Linux and macOS, an on-demand larger build that can load `.so` extensions, offered after asking (see the research notes).
 - `php.ini` profiles and templates (dev, prod, testing).
 - Global configuration shared across versions.
 - Integration with Docker images for reproducibility.
+
+---
+
+## Decisions and research notes
+
+Facts below were checked against the real servers when this was written (November 2026) unless marked otherwise. Treat versions and sizes as a snapshot.
+
+### Decisions
+
+- Linux and macOS keep using the **`common`** static-php build by default: it is the fastest to install (11 MB) and covers the usual web stack.
+- phpz will **not compile or host PHP builds itself**. Building from php.net sources in a CI of our own would give an official, verifiable chain (php.net publishes a SHA-256 and a GPG signature for every release, old ones included), but it is a project of weeks and a recurring maintenance load, and the project does not want to own it. It stays as a possibility only.
+- A larger build is only ever offered **on demand, after asking**, never as the default.
+- No warning about how far static-php lags behind php.net for now.
+
+### What static-php offers (Linux x86_64, PHP 8.3)
+
+| Flavor | Size | Extensions | Notes |
+|---|---|---|---|
+| `minimal` | 2.5 MB | 8 | iconv, mbstring, pcntl, phar, posix, tokenizer, zlib, filter |
+| `common` | 11.2 MB | 38 | what phpz installs today; fully static (musl), cannot load `.so` |
+| `bulk` | 28.9 MB | 57 | adds intl, opcache, imagick, apcu, swoole, sodium, xsl...; static, cannot load `.so`; Linux and macOS |
+| `gnu-bulk` | 37.8 MB | 57 | same set built dynamically against glibc 2.17; **can load `.so` extensions** (an xdebug.so built elsewhere loaded in an experiment); Linux only, from 8.1.33 |
+
+- The flavors are **not nested**: `bulk` and `gnu-bulk` lack `pdo_sqlite` and `pdo_pgsql`, which `common` has, so replacing `common` by `bulk` would lose `pdo_sqlite`. `xdebug`, `mongodb`, `pcov`, `igbinary` and `memcached` are in none of them.
+- No version older than 8.0.30 exists in any flavor.
+- **No checksums** are published (`.sha256` answers 404), and the builds lag behind php.net: at the time, 8.3.32, 8.4.23 and 8.5.8 against php.net's 8.3.36, 8.4.27 and 8.5.12.
+- The experiments on `gnu-bulk` were run by a research pass. Not verified: building a PECL extension against it with php.net headers, macOS dynamic loading, and actual compile times (estimated at 1 to 6 minutes for a PHP build with `make -j12`).
+
+### Other sources considered
+
+- Docker official images and the Ondrej and Remi repositories build from php.net sources, but only work inside the image or need root and a specific distribution.
+- shivammathur/php-builder ships per-distribution tarballs without checksums that install into system paths: not relocatable, so they do not fit.
+- php.new and Herd Lite download one floating static build with no checksum and no version choice.
+- mise, asdf and phpbrew compile from source.
+- **PIE** (the PHP Foundation's successor to PECL) builds extensions with `phpize` on Unix, so it needs a compiler, and downloads prebuilt DLLs on Windows. phpz should copy its naming scheme rather than depend on it.

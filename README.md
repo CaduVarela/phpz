@@ -72,8 +72,16 @@ phpz config get memory_limit
 phpz config set memory_limit 512M
 phpz config remove memory_limit
 
+phpz ext list                    # what the active version has: enabled, disabled, built in
+phpz ext enable intl             # switch an extension on in the active version
+phpz ext disable gd              # and off again
+phpz ext enable intl --global    # also keep it on in every version, now and when installed later
+phpz ext sync --all              # apply those global choices to every installed version
+
 phpz completions bash   # also zsh, fish, elvish and powershell
 ```
+
+**Extensions.** On Windows the official zip ships the extensions as DLLs, so `phpz ext enable|disable` just switches the right line of the version's `php.ini` (the file keeps its comments, order and line endings). `--global` also records the choice in `~/.phpz/config.toml`, and from then on every version you install gets it, and `phpz ext sync` applies it to the ones you already have. An extension a version does not have is skipped with a message, never an error. On Linux and macOS the builds are static with a fixed set of extensions: `phpz ext list` shows what is built in, enabling a built-in one is a no-op, and one that is not in the build is reported as unavailable. Installing extensions that are not part of PHP itself (xdebug, redis, imagick...) is not available yet.
 
 `phpz config` edits the `php.ini` of the active version. Only the line you change is touched: comments, ordering and repeated keys such as `extension=` are preserved. Values are written exactly as given, so quote them yourself when you need a string (`phpz config set error_log '"/tmp/php errors.log"'`).
 
@@ -127,7 +135,9 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 ## Roadmap
 
 - Download integrity verification on Linux and macOS.
-- Extension management (`phpz ext`), pending support for builds that can load external extensions. The command exists but currently exits with an explanatory error.
+- Installing extensions that do not ship with PHP (xdebug, redis, imagick...), starting with Windows.
+- Offering a larger build on Linux and macOS when an extension needs it, asking first, so the small fast build stays the default.
+- Per-project versions and extensions.
 - `php.ini` profiles (`phpz config use dev`).
 
 ---
