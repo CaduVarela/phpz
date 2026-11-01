@@ -23,9 +23,10 @@ use crate::php::variant::Variant;
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Install a PHP version ("8", "8.3" or "8.3.9")
+    /// Install a PHP version ("8", "8.3" or "8.3.9"), or the one this folder pins
     Install {
-        version: String,
+        /// Version to install; without one, the version this folder pins (and its extensions)
+        version: Option<String>,
 
         /// Install even when no checksum is published to verify the download (needed in scripts)
         #[arg(long)]

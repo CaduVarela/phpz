@@ -174,3 +174,18 @@ fn use_without_a_version_activates_the_one_the_folder_pins() {
     assert!(!output.status.success());
     assert!(err(&output).contains("no version given"));
 }
+
+#[test]
+fn install_without_a_version_needs_a_pin_and_skips_what_is_installed() {
+    let (home, work) = setup();
+
+    let output = phpz(home.path(), work.path(), &["install"]);
+    assert!(!output.status.success());
+    assert!(err(&output).contains("no version given"));
+
+    fs::write(work.path().join(".php-version"), "8.2\n").unwrap();
+    let output = phpz(home.path(), work.path(), &["install"]);
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(out(&output).contains("PHP 8.2 (pinned by"));
+    assert!(out(&output).contains("is already installed"));
+}

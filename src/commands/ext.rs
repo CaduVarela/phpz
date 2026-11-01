@@ -363,7 +363,7 @@ fn describe_choices(choices: &crate::extensions::settings::ExtensionSettings) ->
 }
 
 /// Make sure the version that applies here has the extensions the project enables.
-fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
+pub fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
     let version = ActiveVersion::find()?;
     let Some(project) = version
         .project
