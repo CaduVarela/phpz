@@ -1,0 +1,7 @@
+# Pinned so that every machine and the CI use the same compiler and the same lints.
+# To move to a newer Rust: change the version, run
+# `cargo clippy --locked --all-targets -- -D warnings`, fix what it reports, and commit.
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["clippy", "rustfmt"]
