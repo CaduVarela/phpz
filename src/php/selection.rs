@@ -31,7 +31,7 @@ pub const NOTHING_SELECTED: &str =
     "no PHP version is active. Run 'phpz use <version>', or pin one here with 'phpz local <version>'.";
 
 /// The project's pin, otherwise the global default; an uninstalled pin is an error.
-fn choose(
+pub fn choose(
     project: Option<&Project>,
     installed_versions: &[String],
     global: Option<String>,
@@ -76,6 +76,3 @@ pub fn select_here() -> Result<Option<Selection>, String> {
 pub fn require_here() -> Result<Selection, String> {
     select_here()?.ok_or_else(|| NOTHING_SELECTED.to_string())
 }
-
-#[cfg(test)]
-mod tests;

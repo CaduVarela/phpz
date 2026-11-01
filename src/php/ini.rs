@@ -274,6 +274,3 @@ impl IniDocument {
         insertion_index
     }
 }
-
-#[cfg(test)]
-mod tests;

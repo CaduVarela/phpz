@@ -6,7 +6,7 @@ pub fn phpz_home() -> Result<PathBuf, String> {
     resolve_home(std::env::var_os("PHPZ_HOME"), dirs::home_dir())
 }
 
-fn resolve_home(
+pub fn resolve_home(
     override_value: Option<OsString>,
     home: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
@@ -40,6 +40,3 @@ pub fn active_bin_directory() -> Result<PathBuf, String> {
         link.join("bin")
     })
 }
-
-#[cfg(test)]
-mod tests;

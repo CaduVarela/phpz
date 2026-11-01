@@ -284,7 +284,7 @@ pub fn pkg_config_has(package: &str) -> bool {
 }
 
 /// The first directory of `path_variable` that has an executable file called `name`.
-fn find_in_path(name: &str, path_variable: &std::ffi::OsStr) -> Option<PathBuf> {
+pub fn find_in_path(name: &str, path_variable: &std::ffi::OsStr) -> Option<PathBuf> {
     env::split_paths(path_variable)
         .map(|directory| directory.join(name))
         .find(|candidate| is_executable_file(candidate))
@@ -382,7 +382,7 @@ pub enum Verdict {
 }
 
 /// Fingerprints of the PHP release managers, as listed in php-keyring.gpg when they were pinned.
-const RELEASE_MANAGER_FINGERPRINTS: &[&str] = &[
+pub const RELEASE_MANAGER_FINGERPRINTS: &[&str] = &[
     "1198C0117593497A5EC5C199286AF1F9897469DC", // Pierrick Charron
     "39B641343D8C104B2B146DC3F9C39DC0B9698544", // Ben Ramsey
     "5A52880781F755608BF815FC910DEB46F53EA312", // Derick Rethans
@@ -552,6 +552,3 @@ pub fn compile(
     let relative = final_directory.strip_prefix("/").unwrap_or(final_directory);
     Ok(staging_root.join(relative))
 }
-
-#[cfg(test)]
-mod tests;

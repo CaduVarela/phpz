@@ -60,7 +60,7 @@ fn show() -> Result<(), String> {
 }
 
 /// What a build has and lacks compared to the default, with long lists cut short.
-fn describe_difference(
+pub fn describe_difference(
     extensions: &BTreeSet<String>,
     default_extensions: &BTreeSet<String>,
 ) -> String {
@@ -88,6 +88,3 @@ fn shorten(names: &[&String], limit: usize) -> String {
         shown.join(", ")
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -35,9 +35,6 @@ fn install_panic_hook() {
 }
 
 /// `println!` failures, and writers (such as clap_complete's) that panic with a BrokenPipe error.
-fn is_failed_print(message: &str) -> bool {
+pub fn is_failed_print(message: &str) -> bool {
     message.starts_with("failed printing to std") || message.contains("BrokenPipe")
 }
-
-#[cfg(test)]
-mod tests;

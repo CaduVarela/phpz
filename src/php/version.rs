@@ -1,22 +1,22 @@
-mod static_php;
-mod windows_php;
+pub mod static_php;
+pub mod windows_php;
 
 use std::collections::BTreeSet;
 
 use crate::php::variant::Variant;
 
 /// (major, minor, patch)
-type Version = (u32, u32, u32);
+pub type Version = (u32, u32, u32);
 
 /// A downloadable PHP build.
 #[derive(Debug, Clone)]
 pub struct Build {
-    version: Version,
+    pub version: Version,
     pub url: String,
     /// Expected SHA-256 as lowercase hex, when the source publishes one.
     pub sha256: Option<String>,
     /// Where the SHA-256 can be fetched when the listing does not carry it (Windows archives).
-    sbom_url: Option<String>,
+    pub sbom_url: Option<String>,
     /// The source normally publishes a checksum, so a build without one is out of the ordinary.
     pub expects_checksum: bool,
     /// Which static-php build this is. Windows has only the official one.
@@ -38,7 +38,7 @@ impl Build {
     }
 }
 
-fn parse_version(text: &str) -> Option<Version> {
+pub fn parse_version(text: &str) -> Option<Version> {
     let mut parts = text.split('.');
     let version = (
         parts.next()?.parse().ok()?,
@@ -110,7 +110,7 @@ pub fn variant_extensions(variant: Variant) -> Result<BTreeSet<String>, String> 
 }
 
 /// "8", "8.2" or "8.3.9" as numbers.
-fn parse_request(input: &str) -> Result<Vec<u32>, String> {
+pub fn parse_request(input: &str) -> Result<Vec<u32>, String> {
     let invalid_format_message = format!(
         "invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH",
         input
@@ -128,7 +128,7 @@ fn parse_request(input: &str) -> Result<Vec<u32>, String> {
 }
 
 /// The newest build in `available` that starts with the requested numbers.
-fn find_build<'a>(available: &'a [Build], requested: &[u32]) -> Option<&'a Build> {
+pub fn find_build<'a>(available: &'a [Build], requested: &[u32]) -> Option<&'a Build> {
     available
         .iter()
         .filter(|build| {
@@ -137,6 +137,3 @@ fn find_build<'a>(available: &'a [Build], requested: &[u32]) -> Option<&'a Build
         })
         .max_by_key(|build| build.version)
 }
-
-#[cfg(test)]
-mod tests;

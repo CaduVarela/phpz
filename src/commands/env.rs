@@ -13,13 +13,10 @@ pub fn run() {
     }
 }
 
-fn path_line(directory: &Path, powershell: bool) -> String {
+pub fn path_line(directory: &Path, powershell: bool) -> String {
     if powershell {
         format!("$env:Path = \"{};\" + $env:Path", directory.display())
     } else {
         format!("export PATH=\"{}:$PATH\"", directory.display())
     }
 }
-
-#[cfg(test)]
-mod tests;

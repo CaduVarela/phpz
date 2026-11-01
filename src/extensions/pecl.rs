@@ -215,6 +215,3 @@ pub fn install_dll(archive_path: &Path, name: &str, ext_directory: &Path) -> Res
     fs::rename(&temporary_path, ext_directory.join(&wanted))
         .map_err(|error| format!("installing {}: {}", wanted, error))
 }
-
-#[cfg(test)]
-mod tests;

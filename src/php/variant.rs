@@ -70,7 +70,7 @@ impl Variant {
 }
 
 /// Whether a build can run on a system, or why not.
-fn runs_on(variant: Variant, operating_system: &str, musl: bool) -> Result<(), String> {
+pub fn runs_on(variant: Variant, operating_system: &str, musl: bool) -> Result<(), String> {
     if variant != Variant::GnuBulk {
         return Ok(());
     }
@@ -152,6 +152,3 @@ pub fn smallest_covering(
 pub fn lost_by_switching(current: &BTreeSet<String>, target: &BTreeSet<String>) -> Vec<String> {
     current.difference(target).cloned().collect()
 }
-
-#[cfg(test)]
-mod tests;

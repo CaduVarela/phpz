@@ -96,7 +96,7 @@ pub fn loaded_modules(version_directory: &Path) -> Result<BTreeSet<String>, Stri
 }
 
 /// Module names from `php -m`, lowercase, skipping "[PHP Modules]" headers and any warnings.
-fn parse_modules(output: &str) -> BTreeSet<String> {
+pub fn parse_modules(output: &str) -> BTreeSet<String> {
     const NOISE: &[&str] = &["Warning", "Notice", "Deprecated", "Fatal", "PHP "];
 
     output
@@ -130,7 +130,7 @@ pub enum Outcome {
 }
 
 /// How a new php.ini line spells an extension for this PHP version.
-fn entry_value(ini: &IniDocument, name: &str) -> String {
+pub fn entry_value(ini: &IniDocument, name: &str) -> String {
     let text = ini.render();
     let token = if name == "gd" && text.contains("gd2") {
         "gd2"
@@ -381,6 +381,3 @@ pub fn wrap_names(names: &[String], width: usize) -> Vec<String> {
     }
     lines
 }
-
-#[cfg(test)]
-mod tests;

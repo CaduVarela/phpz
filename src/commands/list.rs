@@ -46,7 +46,7 @@ fn list() -> Result<(), String> {
 }
 
 /// One line of the list: "* 8.2.35 (active, set by ...)", "  8.4.27 (default)" or "  8.3.32".
-fn label(
+pub fn label(
     version: &str,
     effective: Option<&Selection>,
     global: Option<&str>,
@@ -78,6 +78,3 @@ fn base_label(version: &str, effective: Option<&Selection>, global: Option<&str>
     }
     format!("  {}", version)
 }
-
-#[cfg(test)]
-mod tests;

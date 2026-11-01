@@ -32,10 +32,10 @@ pub struct Project {
 }
 
 #[derive(Debug, Deserialize, Default)]
-struct ProjectFile {
-    php: Option<String>,
+pub struct ProjectFile {
+    pub php: Option<String>,
     #[serde(default)]
-    extensions: ExtensionSettings,
+    pub extensions: ExtensionSettings,
 }
 
 /// "8", "8.3" or "8.3.9": one to three numbers separated by dots.
@@ -58,7 +58,7 @@ pub fn normalize_request(text: &str) -> Option<String> {
 }
 
 /// The version in a `.php-version` file: the first line that is not blank or a comment.
-fn parse_version_file(text: &str, file: &Path) -> Result<Option<String>, String> {
+pub fn parse_version_file(text: &str, file: &Path) -> Result<Option<String>, String> {
     for line in text.lines().map(str::trim) {
         if line.is_empty() || line.starts_with('#') {
             continue;
@@ -89,7 +89,7 @@ fn clean_names(names: Vec<String>, file: &Path) -> Result<Vec<String>, String> {
     Ok(cleaned)
 }
 
-fn parse_project_file(text: &str, file: &Path) -> Result<ProjectFile, String> {
+pub fn parse_project_file(text: &str, file: &Path) -> Result<ProjectFile, String> {
     let mut parsed: ProjectFile =
         toml::from_str(text).map_err(|error| format!("invalid {}: {}", file.display(), error))?;
     if let Some(php) = &parsed.php {
@@ -168,6 +168,3 @@ pub fn project_file_pins_php(directory: &Path) -> Result<bool, String> {
         None => Ok(false),
     }
 }
-
-#[cfg(test)]
-mod tests;

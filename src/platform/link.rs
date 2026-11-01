@@ -37,6 +37,3 @@ pub fn remove_link(link: &Path) -> Result<bool, String> {
         Err(error) => Err(format!("removing {}: {}", link.display(), error)),
     }
 }
-
-#[cfg(test)]
-mod tests;

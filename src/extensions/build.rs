@@ -94,7 +94,7 @@ pub fn build_package(
 }
 
 /// The tools an extension build needs that are missing, with the package that has them.
-fn missing_tools(has_tool: impl Fn(&str) -> bool) -> Vec<(&'static str, &'static str)> {
+pub fn missing_tools(has_tool: impl Fn(&str) -> bool) -> Vec<(&'static str, &'static str)> {
     let mut missing = source_build::missing_tools(&has_tool);
     if !has_tool("autoconf") {
         missing.push(("autoconf", "autoconf"));
@@ -168,7 +168,7 @@ fn unpack(archive_path: &Path, destination: &Path) -> Result<PathBuf, String> {
         .ok_or_else(|| "the package does not contain a config.m4".to_string())
 }
 
-fn find_source_root(directory: &Path) -> Option<PathBuf> {
+pub fn find_source_root(directory: &Path) -> Option<PathBuf> {
     if directory.join("config.m4").exists() {
         return Some(directory.to_path_buf());
     }
@@ -201,6 +201,3 @@ fn install_module(module: &Path, target: &Path) -> Result<(), String> {
         .map(|_| ())
         .map_err(|error| format!("copying to {}: {}", target.display(), error))
 }
-
-#[cfg(test)]
-mod tests;

@@ -15,7 +15,7 @@ fn contains_entry(path: &str, entry: &str) -> bool {
 }
 
 /// `path` with `entry` placed first, or None when it is already there.
-fn add_entry(path: &str, entry: &str) -> Option<String> {
+pub fn add_entry(path: &str, entry: &str) -> Option<String> {
     if contains_entry(path, entry) {
         return None;
     }
@@ -27,7 +27,7 @@ fn add_entry(path: &str, entry: &str) -> Option<String> {
 }
 
 /// `path` without `entry`, or None when it was not there.
-fn remove_entry(path: &str, entry: &str) -> Option<String> {
+pub fn remove_entry(path: &str, entry: &str) -> Option<String> {
     if !contains_entry(path, entry) {
         return None;
     }
@@ -170,6 +170,3 @@ pub fn configure(_entry: &str) -> Result<bool, String> {
 pub fn unconfigure(_entry: &str) -> Result<bool, String> {
     Err("the user PATH is only available on Windows".to_string())
 }
-
-#[cfg(test)]
-mod tests;
