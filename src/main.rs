@@ -2,6 +2,7 @@ mod commands;
 mod environment;
 mod ini;
 mod installed;
+mod interaction;
 mod link;
 mod paths;
 mod pipe;

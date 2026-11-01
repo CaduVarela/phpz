@@ -1,8 +1,8 @@
 use std::fs;
-use std::io::{self, IsTerminal, Write};
+use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{paths, user_path};
+use crate::{interaction, paths, user_path};
 
 const BLOCK_START: &str = "# >>> phpz >>>";
 const BLOCK_END: &str = "# <<< phpz <<<";
@@ -218,7 +218,7 @@ pub fn path_note() -> Option<String> {
 /// Stays silent in scripts and CI (no terminal), when PATH is already set up,
 /// and after the question was asked once.
 pub fn offer_setup() {
-    if path_is_active() || !(io::stdin().is_terminal() && io::stderr().is_terminal()) {
+    if path_is_active() || !interaction::is_interactive() {
         return;
     }
     let Some(target) = SetupTarget::detect() else { return };
@@ -230,16 +230,14 @@ pub fn offer_setup() {
     }
     let _ = fs::write(&marker, "");
 
-    eprint!("Add phpz to your PATH by editing {}? [Y/n] ", target.description());
-    let _ = io::stderr().flush();
-
-    let mut answer = String::new();
-    if io::stdin().read_line(&mut answer).is_err() {
-        return;
-    }
-    if !matches!(answer.trim().to_lowercase().as_str(), "" | "y" | "yes") {
-        println!("Skipped. Run 'phpz setup' whenever you want to do it.");
-        return;
+    let question = format!("Add phpz to your PATH by editing {}?", target.description());
+    match interaction::confirm(&question, true) {
+        Some(true) => {}
+        Some(false) => {
+            println!("Skipped. Run 'phpz setup' whenever you want to do it.");
+            return;
+        }
+        None => return,
     }
 
     match target.configure() {
