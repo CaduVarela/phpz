@@ -1,0 +1,217 @@
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+use crate::ini::{IniDocument, PHP_SECTION};
+
+/// Extensions PHP loads with `zend_extension` instead of `extension`.
+const ZEND_EXTENSIONS: &[&str] = &["opcache", "xdebug"];
+
+/// "php_curl.dll", "C:\php\ext\php_curl.dll", "curl.so" and "curl" are all the extension "curl".
+pub fn extension_name(value: &str) -> String {
+    let file = value.trim().trim_matches('"').rsplit(['/', '\\']).next().unwrap_or("");
+    let lower = file.to_lowercase();
+    let without_prefix = lower.strip_prefix("php_").unwrap_or(&lower);
+    without_prefix
+        .strip_suffix(".dll")
+        .or_else(|| without_prefix.strip_suffix(".so"))
+        .unwrap_or(without_prefix)
+        .to_string()
+}
+
+fn key_for(name: &str) -> &'static str {
+    if ZEND_EXTENSIONS.contains(&name) {
+        "zend_extension"
+    } else {
+        "extension"
+    }
+}
+
+/// Extensions a version can switch on and off: the DLLs in its `ext` directory (Windows layout).
+/// A static build has none.
+pub fn available_shared(version_directory: &Path) -> BTreeSet<String> {
+    let Ok(entries) = fs::read_dir(version_directory.join("ext")) else {
+        return BTreeSet::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|entry| entry.file_name().into_string().ok())
+        .filter(|file| file.to_lowercase().starts_with("php_") && file.to_lowercase().ends_with(".dll"))
+        .map(|file| extension_name(&file))
+        .collect()
+}
+
+pub fn php_executable(version_directory: &Path) -> PathBuf {
+    if cfg!(windows) {
+        version_directory.join("php.exe")
+    } else {
+        version_directory.join("bin").join("php")
+    }
+}
+
+/// Everything PHP reports as loaded (`php -m`): enabled shared extensions and built-in ones.
+/// PHP runs with this version's own php.ini, whatever is set in the environment.
+pub fn loaded_modules(version_directory: &Path) -> Result<BTreeSet<String>, String> {
+    let output = Command::new(php_executable(version_directory))
+        .arg("-m")
+        .env_remove("PHP_INI_SCAN_DIR")
+        .env("PHPRC", version_directory)
+        .output()
+        .map_err(|error| format!("could not run PHP: {}", error))?;
+    if !output.status.success() {
+        return Err("PHP failed to list its modules".to_string());
+    }
+    Ok(parse_modules(&String::from_utf8_lossy(&output.stdout)))
+}
+
+/// Module names from `php -m`, lowercase, skipping "[PHP Modules]" headers and any warnings.
+fn parse_modules(output: &str) -> BTreeSet<String> {
+    const NOISE: &[&str] = &["Warning", "Notice", "Deprecated", "Fatal", "PHP "];
+
+    output
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && !line.starts_with('['))
+        .filter(|line| !NOISE.iter().any(|prefix| line.starts_with(prefix)))
+        .map(|line| match line.to_lowercase().as_str() {
+            "zend opcache" => "opcache".to_string(),
+            other => other.to_string(),
+        })
+        .collect()
+}
+
+/// Extensions the php.ini switches on.
+pub fn enabled_in_ini(ini: &IniDocument) -> BTreeSet<String> {
+    ["extension", "zend_extension"]
+        .iter()
+        .flat_map(|key| ini.values(PHP_SECTION, key))
+        .map(|value| extension_name(&value))
+        .collect()
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Outcome {
+    Changed,
+    Unchanged,
+    /// Compiled into PHP: always on and impossible to switch off.
+    BuiltIn,
+    Unavailable,
+}
+
+/// PHP 7.0 and 7.1 name extensions by DLL ("extension=php_curl.dll"); later versions use short names.
+fn uses_dll_names(ini: &IniDocument) -> bool {
+    ini.render().contains("extension=php_")
+}
+
+fn entry_value(ini: &IniDocument, name: &str) -> String {
+    if uses_dll_names(ini) {
+        format!("php_{}.dll", name)
+    } else {
+        name.to_string()
+    }
+}
+
+/// Switch an extension on. `loaded` only runs when the extension is not one of the shared ones.
+pub fn enable(
+    ini: &mut IniDocument,
+    name: &str,
+    available: &BTreeSet<String>,
+    loaded: impl FnOnce() -> Result<BTreeSet<String>, String>,
+) -> Result<Outcome, String> {
+    let name = extension_name(name);
+
+    if !available.contains(&name) {
+        return Ok(if loaded()?.contains(&name) {
+            Outcome::BuiltIn
+        } else {
+            Outcome::Unavailable
+        });
+    }
+    if enabled_in_ini(ini).contains(&name) {
+        return Ok(Outcome::Unchanged);
+    }
+
+    let matches = |value: &str| extension_name(value) == name;
+    let key = key_for(&name);
+    if !ini.uncomment_entry(PHP_SECTION, key, matches) {
+        let value = entry_value(ini, &name);
+        ini.add_entry_near(PHP_SECTION, key, &value);
+    }
+    Ok(Outcome::Changed)
+}
+
+/// Switch an extension off by commenting its line out, so the line stays where the template had it.
+pub fn disable(
+    ini: &mut IniDocument,
+    name: &str,
+    available: &BTreeSet<String>,
+    loaded: impl FnOnce() -> Result<BTreeSet<String>, String>,
+) -> Result<Outcome, String> {
+    let name = extension_name(name);
+
+    if !available.contains(&name) {
+        return Ok(if loaded()?.contains(&name) {
+            Outcome::BuiltIn
+        } else {
+            Outcome::Unavailable
+        });
+    }
+
+    let matches = |value: &str| extension_name(value) == name;
+    let changed = ini.comment_out_entries(PHP_SECTION, "extension", matches)
+        + ini.comment_out_entries(PHP_SECTION, "zend_extension", matches);
+    Ok(if changed > 0 { Outcome::Changed } else { Outcome::Unchanged })
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Listing {
+    pub enabled: Vec<String>,
+    pub disabled: Vec<String>,
+    /// Switched on in php.ini but PHP did not load it (missing file, wrong build, ...).
+    pub failing: Vec<String>,
+    pub built_in: Vec<String>,
+}
+
+pub fn classify(
+    available: &BTreeSet<String>,
+    loaded: &BTreeSet<String>,
+    in_ini: &BTreeSet<String>,
+) -> Listing {
+    let names = |set: Vec<&String>| set.into_iter().cloned().collect::<Vec<String>>();
+
+    Listing {
+        enabled: names(available.iter().filter(|name| loaded.contains(*name)).collect()),
+        failing: names(
+            available
+                .iter()
+                .filter(|name| !loaded.contains(*name) && in_ini.contains(*name))
+                .collect(),
+        ),
+        disabled: names(
+            available
+                .iter()
+                .filter(|name| !loaded.contains(*name) && !in_ini.contains(*name))
+                .collect(),
+        ),
+        built_in: names(loaded.iter().filter(|name| !available.contains(*name)).collect()),
+    }
+}
+
+/// Names joined with ", " and wrapped into lines no longer than `width`.
+pub fn wrap_names(names: &[String], width: usize) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for name in names {
+        match lines.last_mut() {
+            Some(line) if line.len() + 2 + name.len() <= width => {
+                line.push_str(", ");
+                line.push_str(name);
+            }
+            _ => lines.push(name.clone()),
+        }
+    }
+    lines
+}
+
+#[cfg(test)]
+mod tests;

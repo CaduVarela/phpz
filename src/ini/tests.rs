@@ -64,3 +64,100 @@ fn crlf_line_endings_are_preserved() {
     document.set("PHP", "b", "2");
     assert_eq!(document.render(), "[PHP]\r\na = 1\r\nb = 2\r\n");
 }
+
+const EXTENSIONS: &str = "\
+[PHP]
+; Dynamic Extensions
+;extension=bz2
+;extension=curl
+extension=gd
+; extension=ldap is only prose
+;extension=mbstring
+zend_extension=opcache
+;zend_extension=xdebug
+
+[Date]
+;extension=notmine
+";
+
+fn is(name: &str) -> impl Fn(&str) -> bool + '_ {
+    move |value| value == name
+}
+
+#[test]
+fn values_lists_every_active_definition_in_order() {
+    let document = IniDocument::parse(EXTENSIONS);
+    assert_eq!(document.values("PHP", "extension"), ["gd"]);
+    assert_eq!(document.values("PHP", "zend_extension"), ["opcache"]);
+    assert!(document.values("Date", "extension").is_empty());
+}
+
+#[test]
+fn uncomment_activates_the_matching_commented_line_only() {
+    let mut document = IniDocument::parse(EXTENSIONS);
+    assert!(document.uncomment_entry("PHP", "extension", is("curl")));
+    assert_eq!(document.values("PHP", "extension"), ["curl", "gd"]);
+    assert!(document.render().contains(";extension=bz2\nextension=curl\nextension=gd\n"));
+}
+
+#[test]
+fn uncomment_never_activates_prose_comments_or_other_sections() {
+    let mut document = IniDocument::parse(EXTENSIONS);
+    assert!(!document.uncomment_entry("PHP", "extension", is("ldap")));
+    assert!(!document.uncomment_entry("PHP", "extension", is("notmine")));
+    assert!(!document.uncomment_entry("PHP", "extension", is("missing")));
+    assert_eq!(document.render(), EXTENSIONS);
+}
+
+#[test]
+fn uncomment_works_for_zend_extension_keys() {
+    let mut document = IniDocument::parse(EXTENSIONS);
+    assert!(document.uncomment_entry("PHP", "zend_extension", is("xdebug")));
+    assert_eq!(document.values("PHP", "zend_extension"), ["opcache", "xdebug"]);
+}
+
+#[test]
+fn comment_out_deactivates_only_the_matching_lines() {
+    let mut document = IniDocument::parse(EXTENSIONS);
+    assert_eq!(document.comment_out_entries("PHP", "extension", is("gd")), 1);
+    assert!(document.values("PHP", "extension").is_empty());
+    assert!(document.render().contains(";extension=gd\n"));
+    assert_eq!(document.comment_out_entries("PHP", "extension", is("gd")), 0);
+}
+
+#[test]
+fn comment_out_then_uncomment_restores_the_file() {
+    let mut document = IniDocument::parse(EXTENSIONS);
+    document.comment_out_entries("PHP", "extension", is("gd"));
+    assert!(document.uncomment_entry("PHP", "extension", is("gd")));
+    assert_eq!(document.render(), EXTENSIONS);
+}
+
+#[test]
+fn new_entry_goes_after_the_last_line_of_the_same_key() {
+    let mut document = IniDocument::parse(EXTENSIONS);
+    document.add_entry_near("PHP", "extension", "ffi");
+    assert!(document.render().contains(";extension=mbstring\nextension=ffi\nzend_extension=opcache\n"));
+}
+
+#[test]
+fn new_entry_without_siblings_goes_to_the_end_of_its_section() {
+    let mut document = IniDocument::parse("[PHP]\nmemory_limit=1G\n\n[Date]\nx=1\n");
+    document.add_entry_near("PHP", "extension", "ffi");
+    assert_eq!(document.render(), "[PHP]\nmemory_limit=1G\nextension=ffi\n\n[Date]\nx=1\n");
+}
+
+#[test]
+fn new_entry_creates_the_section_when_missing() {
+    let mut document = IniDocument::parse("[Date]\nx=1\n");
+    document.add_entry_near("PHP", "extension", "ffi");
+    assert_eq!(document.render(), "[Date]\nx=1\n\n[PHP]\nextension=ffi\n");
+}
+
+#[test]
+fn extension_edits_keep_crlf_line_endings() {
+    let mut document = IniDocument::parse("[PHP]\r\n;extension=curl\r\n");
+    document.uncomment_entry("PHP", "extension", is("curl"));
+    document.add_entry_near("PHP", "extension", "gd");
+    assert_eq!(document.render(), "[PHP]\r\nextension=curl\r\nextension=gd\r\n");
+}

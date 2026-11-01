@@ -1,5 +1,6 @@
 mod commands;
 mod environment;
+mod extensions;
 mod ini;
 mod installed;
 mod interaction;

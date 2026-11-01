@@ -118,6 +118,94 @@ impl IniDocument {
             return;
         }
 
+        self.insert_into_section(section, new_line);
+    }
+
+    /// Effective values of every active `key` line in `section`, in file order.
+    pub fn values(&self, section: &str, key: &str) -> Vec<String> {
+        self.find_entries(section, key)
+            .into_iter()
+            .filter_map(|index| match classify(&self.lines[index]) {
+                LineKind::Entry { raw_value, .. } => Some(effective_value(raw_value)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Activate the first commented `;key=value` line of `section` whose value satisfies `matches`.
+    /// The semicolon must be directly followed by the key, so prose comments are never activated.
+    pub fn uncomment_entry(&mut self, section: &str, key: &str, matches: impl Fn(&str) -> bool) -> bool {
+        let mut current_section = String::new();
+
+        for index in 0..self.lines.len() {
+            if let LineKind::Section(name) = classify(&self.lines[index]) {
+                current_section = name.to_string();
+                continue;
+            }
+            if current_section != section {
+                continue;
+            }
+            let Some(rest) = self.lines[index].strip_prefix(';').filter(|rest| rest.starts_with(key)) else {
+                continue;
+            };
+            if let LineKind::Entry { key: line_key, raw_value } = classify(rest) {
+                if line_key == key && matches(&effective_value(raw_value)) {
+                    self.lines[index] = rest.to_string();
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Comment out every active `key` line of `section` whose value satisfies `matches`.
+    /// Returns how many lines changed.
+    pub fn comment_out_entries(&mut self, section: &str, key: &str, matches: impl Fn(&str) -> bool) -> usize {
+        let mut changed = 0;
+        for index in self.find_entries(section, key) {
+            let value = match classify(&self.lines[index]) {
+                LineKind::Entry { raw_value, .. } => effective_value(raw_value),
+                _ => continue,
+            };
+            if matches(&value) {
+                self.lines[index] = format!(";{}", self.lines[index].trim_start());
+                changed += 1;
+            }
+        }
+        changed
+    }
+
+    /// Add `key=value` next to the other `key` lines of `section` (active or commented out),
+    /// or at the end of the section when there are none.
+    pub fn add_entry_near(&mut self, section: &str, key: &str, value: &str) {
+        let new_line = format!("{}={}", key, value);
+        let mut current_section = String::new();
+        let mut anchor = None;
+
+        for (index, line) in self.lines.iter().enumerate() {
+            if let LineKind::Section(name) = classify(line) {
+                current_section = name.to_string();
+                continue;
+            }
+            if current_section != section {
+                continue;
+            }
+            let entry_line = line.strip_prefix(';').filter(|rest| rest.starts_with(key)).unwrap_or(line);
+            if let LineKind::Entry { key: line_key, .. } = classify(entry_line) {
+                if line_key == key {
+                    anchor = Some(index + 1);
+                }
+            }
+        }
+
+        match anchor {
+            Some(index) => self.lines.insert(index, new_line),
+            None => self.insert_into_section(section, new_line),
+        }
+    }
+
+    /// Put `new_line` at the end of `section`, creating the section when it does not exist.
+    fn insert_into_section(&mut self, section: &str, new_line: String) {
         match self.section_insertion_index(section) {
             Some(index) => self.lines.insert(index, new_line),
             None => {

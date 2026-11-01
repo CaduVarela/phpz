@@ -1,21 +1,126 @@
+use std::path::PathBuf;
+
 use clap::Subcommand;
+
+use crate::extensions::{self, Outcome};
+use crate::ini::IniDocument;
+use crate::{installed, paths};
 
 #[derive(Subcommand)]
 pub enum ExtCommands {
-    /// Enable a PHP extension (not available yet)
+    /// List the extensions of the active PHP version
+    List,
+
+    /// Enable an extension in the active PHP version
     Enable { name: String },
 
-    /// Disable a PHP extension (not available yet)
+    /// Disable an extension in the active PHP version
     Disable { name: String },
+}
+
+struct ActiveVersion {
+    name: String,
+    directory: PathBuf,
+}
+
+impl ActiveVersion {
+    fn find() -> Result<ActiveVersion, String> {
+        let name = installed::active_version()?
+            .ok_or("no PHP version is active. Run 'phpz use <version>'.")?;
+        let directory = paths::versions_directory()?.join(&name);
+        Ok(ActiveVersion { name, directory })
+    }
+
+    fn ini_path(&self) -> PathBuf {
+        self.directory.join("php.ini")
+    }
 }
 
 impl ExtCommands {
     pub fn run(self) {
-        eprintln!(
-            "Error: extension management is not available yet. \
-             The static PHP builds used by phpz ship a fixed set of extensions \
-             and cannot load external ones."
-        );
-        std::process::exit(1);
+        if let Err(error) = self.execute() {
+            eprintln!("Error: {}", error);
+            std::process::exit(1);
+        }
     }
+
+    fn execute(self) -> Result<(), String> {
+        match self {
+            ExtCommands::List => list(),
+            ExtCommands::Enable { name } => toggle(&name, true),
+            ExtCommands::Disable { name } => toggle(&name, false),
+        }
+    }
+}
+
+fn load_ini(version: &ActiveVersion) -> Result<IniDocument, String> {
+    IniDocument::load(&version.ini_path())
+        .map_err(|error| format!("reading {}: {}", version.ini_path().display(), error))
+}
+
+fn list() -> Result<(), String> {
+    let version = ActiveVersion::find()?;
+    let ini = load_ini(&version)?;
+    let available = extensions::available_shared(&version.directory);
+    let loaded = extensions::loaded_modules(&version.directory)?;
+    let listing = extensions::classify(&available, &loaded, &extensions::enabled_in_ini(&ini));
+
+    println!("PHP {}", version.name);
+    print_group("enabled", &listing.enabled);
+    print_group("disabled (can be enabled)", &listing.disabled);
+    print_group("enabled in php.ini but not loading", &listing.failing);
+    print_group("built in (always on)", &listing.built_in);
+    Ok(())
+}
+
+fn print_group(title: &str, names: &[String]) {
+    if names.is_empty() {
+        return;
+    }
+    println!("\n{} ({}):", title, names.len());
+    for line in extensions::wrap_names(names, 76) {
+        println!("  {}", line);
+    }
+}
+
+fn toggle(name: &str, enable: bool) -> Result<(), String> {
+    let version = ActiveVersion::find()?;
+    let mut ini = load_ini(&version)?;
+    let available = extensions::available_shared(&version.directory);
+    let loaded = || extensions::loaded_modules(&version.directory);
+
+    let outcome = if enable {
+        extensions::enable(&mut ini, name, &available, loaded)?
+    } else {
+        extensions::disable(&mut ini, name, &available, loaded)?
+    };
+    let name = extensions::extension_name(name);
+
+    match outcome {
+        Outcome::Changed => {
+            ini.save(&version.ini_path())
+                .map_err(|error| format!("writing {}: {}", version.ini_path().display(), error))?;
+            let verb = if enable { "Enabled" } else { "Disabled" };
+            println!("{} {} in PHP {}", verb, name, version.name);
+        }
+        Outcome::Unchanged => {
+            let state = if enable { "enabled" } else { "disabled" };
+            println!("{} is already {} in PHP {}.", name, state, version.name);
+        }
+        Outcome::BuiltIn if enable => {
+            println!("{} is built into PHP {} and is always on.", name, version.name)
+        }
+        Outcome::BuiltIn => {
+            return Err(format!("{} is built into PHP {} and cannot be disabled.", name, version.name))
+        }
+        Outcome::Unavailable => {
+            let reason = if available.is_empty() {
+                "This build has a fixed set of extensions."
+            } else {
+                "It is not bundled with this PHP, and installing extra extensions is not available yet."
+            };
+            return Err(format!("{} is not available in PHP {}. {}", name, version.name, reason));
+        }
+    }
+    Ok(())
 }
