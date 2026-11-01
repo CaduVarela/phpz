@@ -40,6 +40,7 @@ phpz variants           # Linux and macOS: the builds you can choose from, and w
 phpz install 8.3 --build                         # Linux: compile it from the official source (a few minutes)
 phpz install 8.3 --variant bulk                  # a larger build with intl, opcache, imagick...
 phpz install 8.3.32 --variant bulk --replace     # move an installed version to another build, keeping its php.ini
+phpz install            # in a project: install the pinned version and the extensions it enables
 phpz install 8.3        # install the latest 8.3.x (also accepts "8" or "8.3.9")
 phpz install 7.3.33 --allow-unverified   # Windows: skip the question for a build with no published checksum
 phpz list               # list installed versions, marking the active one
