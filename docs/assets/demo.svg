@@ -4,20 +4,20 @@ text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",m
 .p{fill:#7ee787;font-size:15px;font-weight:700} .cmd{fill:#ffffff;font-size:15px;font-weight:700}
 .out{fill:#7d8590;font-size:13px} .main{fill:#c9d1d9;font-size:13px} .ok{fill:#7ee787;font-size:13px}
 .title{fill:#7d8590;font-size:12px;font-family:ui-sans-serif,system-ui,sans-serif}
-@keyframes t0{0%,4.281%{width:0}8.390%,97%{width:142.4px}100%{width:0}}#c0{animation:t0 11.68s steps(1,end) infinite}
-@keyframes p0{0%,4.281%{opacity:0}4.291%,97%{opacity:1}100%{opacity:0}}#q0{animation:p0 11.68s steps(1,end) infinite}
-@keyframes o1{0%,10.103%{opacity:0}10.113%,97%{opacity:1}100%{opacity:0}}#o1{animation:o1 11.68s steps(1,end) infinite}
-@keyframes t2{0%,14.298%{width:0}17.380%,97%{width:106.8px}100%{width:0}}#c2{animation:t2 11.68s steps(1,end) infinite}
-@keyframes p2{0%,14.298%{opacity:0}14.308%,97%{opacity:1}100%{opacity:0}}#q2{animation:p2 11.68s steps(1,end) infinite}
-@keyframes o3{0%,19.092%{opacity:0}19.102%,97%{opacity:1}100%{opacity:0}}#o3{animation:o3 11.68s steps(1,end) infinite}
-@keyframes t4{0%,25.000%{width:0}28.596%,97%{width:124.6px}100%{width:0}}#c4{animation:t4 11.68s steps(1,end) infinite}
-@keyframes p4{0%,25.000%{opacity:0}25.010%,97%{opacity:1}100%{opacity:0}}#q4{animation:p4 11.68s steps(1,end) infinite}
-@keyframes o5{0%,30.308%{opacity:0}30.318%,97%{opacity:1}100%{opacity:0}}#o5{animation:o5 11.68s steps(1,end) infinite}
-@keyframes t6{0%,34.503%{width:0}36.045%,97%{width:53.4px}100%{width:0}}#c6{animation:t6 11.68s steps(1,end) infinite}
-@keyframes p6{0%,34.503%{opacity:0}34.513%,97%{opacity:1}100%{opacity:0}}#q6{animation:p6 11.68s steps(1,end) infinite}
-@keyframes o7{0%,37.757%{opacity:0}37.767%,97%{opacity:1}100%{opacity:0}}#o7{animation:o7 11.68s steps(1,end) infinite}
-@keyframes o8{0%,38.099%{opacity:0}38.109%,97%{opacity:1}100%{opacity:0}}#o8{animation:o8 11.68s steps(1,end) infinite}
-@keyframes o9{0%,38.442%{opacity:0}38.452%,97%{opacity:1}100%{opacity:0}}#o9{animation:o9 11.68s steps(1,end) infinite}
+@keyframes t0{0%,9.294%{width:0}18.216%,100%{width:142.4px}}#c0{animation:t0 5.38s steps(1,end) 1 forwards}
+@keyframes p0{0%,9.294%{opacity:0}9.304%,100%{opacity:1}}#q0{animation:p0 5.38s steps(1,end) 1 forwards}
+@keyframes o1{0%,21.933%{opacity:0}21.943%,100%{opacity:1}}#o1{animation:o1 5.38s steps(1,end) 1 forwards}
+@keyframes t2{0%,31.041%{width:0}37.732%,100%{width:106.8px}}#c2{animation:t2 5.38s steps(1,end) 1 forwards}
+@keyframes p2{0%,31.041%{opacity:0}31.051%,100%{opacity:1}}#q2{animation:p2 5.38s steps(1,end) 1 forwards}
+@keyframes o3{0%,41.450%{opacity:0}41.460%,100%{opacity:1}}#o3{animation:o3 5.38s steps(1,end) 1 forwards}
+@keyframes t4{0%,54.275%{width:0}62.082%,100%{width:124.6px}}#c4{animation:t4 5.38s steps(1,end) 1 forwards}
+@keyframes p4{0%,54.275%{opacity:0}54.285%,100%{opacity:1}}#q4{animation:p4 5.38s steps(1,end) 1 forwards}
+@keyframes o5{0%,65.799%{opacity:0}65.809%,100%{opacity:1}}#o5{animation:o5 5.38s steps(1,end) 1 forwards}
+@keyframes t6{0%,74.907%{width:0}78.253%,100%{width:53.4px}}#c6{animation:t6 5.38s steps(1,end) 1 forwards}
+@keyframes p6{0%,74.907%{opacity:0}74.917%,100%{opacity:1}}#q6{animation:p6 5.38s steps(1,end) 1 forwards}
+@keyframes o7{0%,81.970%{opacity:0}81.980%,100%{opacity:1}}#o7{animation:o7 5.38s steps(1,end) 1 forwards}
+@keyframes o8{0%,82.714%{opacity:0}82.724%,100%{opacity:1}}#o8{animation:o8 5.38s steps(1,end) 1 forwards}
+@keyframes o9{0%,83.457%{opacity:0}83.467%,100%{opacity:1}}#o9{animation:o9 5.38s steps(1,end) 1 forwards}
 </style>
 <rect width="720" height="294" rx="10" fill="#0d1117"/>
 <rect width="720" height="36" rx="10" fill="#161b22"/><rect y="26" width="720" height="10" fill="#161b22"/>
