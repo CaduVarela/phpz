@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Extensions per project. The `[extensions]` table of a `.phpz.toml` (`enable`, `disable`, names only) applies inside that project through a generated `php.ini`, and nowhere else. `phpz ext sync --project` reports the extensions the version lacks and, on Windows with `--install`, downloads them. `phpz ext list` shows what the project changes.
 - A `php` shim, so the plain `php` command follows the project. `phpz setup` puts `~/.phpz/shims` on `PATH`; the `php` in it is phpz, which starts the version for the current folder with that version's own `php.ini`. It also clears a `PHP_INI_SCAN_DIR` exported by another PHP (Scoop) on Windows, which fixes extensions loading twice.
 - Per-project PHP versions. A `.php-version` (just a version) or a `.phpz.toml` (`php = "8.3"`, plus extensions later) in a folder or any parent folder sets the version there. `phpz local <version>` writes the file, `phpz local --unset` removes it, `phpz local` shows what applies, and `phpz which` prints the php that would run. `current`, `list`, `config` and `ext` follow the project. A pinned version that is not installed is an error, never a fallback.
 

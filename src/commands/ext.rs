@@ -5,6 +5,7 @@ use clap::Subcommand;
 use crate::extensions::{self, Outcome};
 use crate::{extension_install, pecl};
 use crate::ini::IniDocument;
+use crate::project::{Project, PROJECT_FILE};
 use crate::settings::Settings;
 use crate::{installed, paths, selection};
 
@@ -51,8 +52,12 @@ pub enum ExtCommands {
     /// Apply the global extension settings to the active version (or to all with --all)
     Sync {
         /// Every installed version, not only the active one
-        #[arg(long)]
+        #[arg(long, conflicts_with = "project")]
         all: bool,
+
+        /// Check (and with --install, download) the extensions the project's .phpz.toml enables
+        #[arg(long)]
+        project: bool,
 
         /// Also download the extensions a version is missing (Windows)
         #[arg(long)]
@@ -67,13 +72,14 @@ pub enum ExtCommands {
 struct ActiveVersion {
     name: String,
     directory: PathBuf,
+    project: Option<Project>,
 }
 
 impl ActiveVersion {
     fn find() -> Result<ActiveVersion, String> {
         let selection = selection::require_here()?;
         let directory = selection.directory()?;
-        Ok(ActiveVersion { name: selection.version, directory })
+        Ok(ActiveVersion { name: selection.version, directory, project: selection.project })
     }
 
     fn ini_path(&self) -> PathBuf {
@@ -97,7 +103,13 @@ impl ExtCommands {
             ExtCommands::Install { name, version, allow_unverified, global } => {
                 install_extension(&name, version.as_deref(), allow_unverified, global)
             }
-            ExtCommands::Sync { all, install, allow_unverified } => sync(all, install, allow_unverified),
+            ExtCommands::Sync { all, project, install, allow_unverified } => {
+                if project {
+                    sync_project(install, allow_unverified)
+                } else {
+                    sync(all, install, allow_unverified)
+                }
+            }
         }
     }
 }
@@ -115,6 +127,9 @@ fn list() -> Result<(), String> {
     let listing = extensions::classify(&available, &loaded, &extensions::enabled_in_ini(&ini));
 
     println!("PHP {}", version.name);
+    if let Some(project) = version.project.as_ref().filter(|project| !project.extensions.is_empty()) {
+        println!("project {}: {}", project.directory.display(), describe_choices(&project.extensions));
+    }
     print_group("enabled", &listing.enabled);
     print_group("disabled (can be enabled)", &listing.disabled);
     print_group("enabled in php.ini but not loading", &listing.failing);
@@ -213,6 +228,59 @@ fn install_extension(name: &str, requested: Option<&str>, allow_unverified: bool
         println!("Its checksum was recorded in downloads.lock; phpz will refuse a different file at the same address from now on.");
     }
     toggle(&name, true, global)
+}
+
+/// "enables intl, redis; disables xdebug"
+fn describe_choices(choices: &crate::settings::ExtensionSettings) -> String {
+    let mut parts = Vec::new();
+    if !choices.enable.is_empty() {
+        parts.push(format!("enables {}", choices.enable.join(", ")));
+    }
+    if !choices.disable.is_empty() {
+        parts.push(format!("disables {}", choices.disable.join(", ")));
+    }
+    parts.join("; ")
+}
+
+/// Make sure the version that applies here has the extensions the project enables. The project's
+/// choices themselves are applied at run time by the php shim, through a generated php.ini.
+fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
+    if install && !cfg!(windows) {
+        return Err(WINDOWS_ONLY.to_string());
+    }
+    let version = ActiveVersion::find()?;
+    let Some(project) = version.project.as_ref().filter(|project| !project.extensions.is_empty()) else {
+        println!("No extension choices apply here. Add an [extensions] table to a {} file.", PROJECT_FILE);
+        return Ok(());
+    };
+
+    let wanted = &project.extensions.enable;
+    let available = extensions::available_shared(&version.directory);
+    let missing = extensions::missing_extensions(wanted, &available, || extensions::loaded_modules(&version.directory))?;
+    if missing.is_empty() {
+        println!("PHP {} has everything this project enables.", version.name);
+        return Ok(());
+    }
+    if !install {
+        println!("PHP {} lacks: {}", version.name, missing.join(", "));
+        if cfg!(windows) {
+            println!("Run 'phpz ext sync --project --install' to download them.");
+        }
+        return Ok(());
+    }
+
+    let (downloaded, failed) = download_missing(&version.directory, &version.name, &missing, allow_unverified)?;
+    if !downloaded.is_empty() {
+        println!("downloaded: {}", downloaded.join(", "));
+    }
+    for line in &failed {
+        eprintln!("{}", line);
+    }
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} extension(s) could not be downloaded", failed.len()))
+    }
 }
 
 fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> {

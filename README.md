@@ -93,6 +93,18 @@ phpz completions bash   # also zsh, fish, elvish and powershell
 
 **Per-project versions.** A project can say which PHP it needs. phpz looks for a `.php-version` (just a version such as `8.2`, `8.2.34` or `v8.2`, the same file other version managers read) or a `.phpz.toml` in the current folder and then in each parent folder, and uses the nearest one. `.phpz.toml` holds `php = "8.2"` and, later, the project's extensions, and wins over a `.php-version` in the same folder. A version that is not installed is an error that names the file and says what to run, never a silent fallback to another PHP. `phpz current`, `list`, `which`, `config` and `ext` follow the project, and so does the plain `php` command: `phpz setup` puts `~/.phpz/shims` (on Windows, `%USERPROFILE%\.phpz\shims`) on your `PATH`, and the `php` in it is phpz itself, which finds the version for the folder it runs in and starts that PHP. It starts it with that version's own `php.ini` and, on Windows, without a `PHP_INI_SCAN_DIR` exported by another PHP such as Scoop's, which would otherwise make extensions load twice. Arguments and the exit code pass through unchanged.
 
+**Per-project extensions.** A `.phpz.toml` can also choose extensions for the project:
+
+```toml
+php = "8.3"
+
+[extensions]
+enable = ["intl", "redis"]
+disable = ["xdebug"]
+```
+
+They apply only inside the project: when `php` runs there, phpz gives it a copy of the version's `php.ini` with those choices applied (kept under `~/.phpz/projects` and refreshed when the version's `php.ini` or the choices change), and the version's own `php.ini` is never touched. Other folders and other projects do not see them. An extension the version does not have is skipped quietly while `php` runs; `phpz ext sync --project` lists what the version lacks and, on Windows with `--install`, downloads it under the same checksum rules as `phpz ext install`. `phpz ext list` shows what the project changes. The lists accept extension names only, never paths.
+
 **Upgrading from 0.2.** The old setup put the default version on `PATH`, which cannot follow projects. Run `phpz setup` once: it updates the marked block (or the Windows `PATH` entry) in place, and `phpz use` reminds you while the old one is still in effect.
 
 `phpz config` edits the `php.ini` of the version that applies here. Only the line you change is touched: comments, ordering and repeated keys such as `extension=` are preserved. Values are written exactly as given, so quote them yourself when you need a string (`phpz config set error_log '"/tmp/php errors.log"'`).

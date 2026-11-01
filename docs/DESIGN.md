@@ -148,6 +148,20 @@ A project can pin its PHP version with files that phpz finds by walking up from 
 - `phpz local [version]` writes `.php-version` (and `--unset` removes it). It refuses when a `.phpz.toml` in the same directory already sets `php`, so two files never disagree. `phpz which` prints the php that would run here.
 - `phpz current`, `list`, `which`, `config` and `ext` use the version that applies in the current directory. `phpz use` still sets the default, and `uninstall` still refuses to remove the default.
 
+### Extensions per project
+
+`.phpz.toml` may carry `[extensions] enable = [...] disable = [...]` (names only; see above). They cannot be applied to the version's own php.ini, which every project shares, so the shim hands PHP a generated copy (`src/project_ini.rs`).
+
+- *Generation.* When a project sets extension choices, the shim loads the version's `php.ini`, applies the choices with the same engine as `phpz ext enable|disable` (`extensions::apply_settings`), and, if anything changed, writes the result to `~/.phpz/projects/<key>/php.ini` and points `PHPRC` there. The key is a hash of the project folder and the version, so each pair has its own file. If the choices change nothing (everything is already as asked) the version's own directory is used and nothing is written.
+- *No staleness bookkeeping.* The file is rebuilt in memory on each run and written only when its content differs from what is there, so a change to the version's php.ini or to the project file takes effect on the next run, and an unchanged project costs a read, a few string edits and a comparison.
+- *Relative paths.* A copy that lives elsewhere cannot keep `extension_dir = "ext"`, which is relative to the version, so it is rewritten as an absolute path into the version.
+- *Quiet at run time.* The shim does not run `php -m` (too slow for every call), so it cannot tell a built-in extension from a missing one. Whatever is not a shared extension of the version is skipped without a message, because noise on stderr breaks tools that wrap php. `phpz ext sync --project` is where the missing ones are reported, and with `--install` (Windows) downloaded.
+- *Failure is soft.* If the generated directory cannot be written, php runs with the version's own settings.
+- *Not cleaned up.* Generated directories of projects that no longer exist stay under `~/.phpz/projects`; they are a few kilobytes each.
+- *Unix.* The static builds have no shared extensions, so a project's choices have no effect there and the version's own directory is always used.
+
+---
+
 ## Shims
 
 Choosing a version per folder has to happen when `php` runs, because the answer depends on the folder. That is what a shim is for, as in rbenv, pyenv or mise (`src/shim.rs`).
@@ -237,6 +251,7 @@ src/
   version/           static_php.rs (Linux, macOS) and windows_php.rs (windows.php.net)
   installed.rs       installed versions and the default version
   project.rs         finding and reading .php-version and .phpz.toml
+  project_ini.rs     the php.ini generated for a project's extension choices
   shim.rs            the php shim: starts the right version, keeps the link or copy fresh
   selection.rs       the version that applies in a directory, and where it comes from
   link.rs            symlink (Unix) or junction (Windows) for `current`
