@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-01
+
+Per-project versions and extensions, a `php` shim, and more ways to get PHP on Linux and macOS.
+
 ### Added
 
 - `phpz install <version> --build` (Linux) compiles PHP from the official source at php.net, checked against its SHA-256 and PGP signature. It gives the newest patch release (the prebuilt builds trail php.net) and builds `intl`, `soap` and `opcache` as `.so` files that `phpz ext enable|disable` can switch. Extensions whose development libraries are missing are left out with the package to install. `--jobs` limits the compile jobs, `--replace` compiles over a prebuilt version keeping its `php.ini`, and `phpz list` shows `[source]`. A failed build prints its first errors and keeps the log. PHP before 8.1 may not compile with OpenSSL 3, and macOS is not supported.
