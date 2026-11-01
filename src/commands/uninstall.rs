@@ -2,6 +2,7 @@ use std::fs;
 
 use crate::{installed, paths};
 
+/// Remove an installed PHP version
 pub fn run(version: String) {
     if let Err(error) = uninstall(&version) {
         eprintln!("Error: {}", error);

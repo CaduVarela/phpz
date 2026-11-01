@@ -4,6 +4,7 @@ use std::path::Path;
 use crate::installed::find_installed;
 use crate::paths;
 
+/// Switch the active PHP version
 pub fn run(version: String) {
     if let Err(error) = activate(&version) {
         eprintln!("Error: {}", error);

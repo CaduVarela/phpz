@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::paths;
 
-/// Finished installations only, sorted ascending.
+/// Names of installed versions (finished installations only), sorted ascending.
 pub fn installed_versions() -> Result<Vec<String>, String> {
     let versions_directory = paths::versions_directory()?;
     if !versions_directory.exists() {
@@ -33,10 +33,12 @@ pub fn version_sort_key(name: &str) -> Vec<u32> {
         .collect()
 }
 
+/// Find the newest installed version matching "8", "8.3" or "8.3.32".
 pub fn find_installed(requested: &str) -> Result<String, String> {
     select_installed(&installed_versions()?, requested)
 }
 
+/// Pick the newest of `installed` (sorted ascending) that matches `requested`.
 fn select_installed(installed: &[String], requested: &str) -> Result<String, String> {
     let requested_parts: Vec<u32> = requested
         .split('.')
@@ -56,6 +58,7 @@ fn select_installed(installed: &[String], requested: &str) -> Result<String, Str
         })
 }
 
+/// Name of the active version, or None when nothing is active.
 pub fn active_version() -> Result<Option<String>, String> {
     let link = paths::current_link()?;
     match fs::read_link(&link) {
@@ -67,6 +70,7 @@ pub fn active_version() -> Result<Option<String>, String> {
     }
 }
 
+/// Path of the active version's php.ini.
 pub fn active_ini_path() -> Result<std::path::PathBuf, String> {
     match active_version()? {
         Some(version) => Ok(paths::versions_directory()?.join(version).join("php.ini")),

@@ -1,5 +1,6 @@
 use crate::installed;
 
+/// Show the active PHP version
 pub fn run() {
     match installed::active_version() {
         Ok(Some(version)) => println!("{}", version),

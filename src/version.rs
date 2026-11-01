@@ -12,7 +12,7 @@ struct IndexEntry {
 /// (major, minor, patch)
 type Version = (u32, u32, u32);
 
-/// Platform suffix of static-php file names, e.g. "linux-x86_64". None on Windows for now.
+/// Platform suffix of static-php file names, e.g. "linux-x86_64" (None on Windows for now).
 pub fn platform() -> Option<String> {
     let operating_system = match std::env::consts::OS {
         "linux" => "linux",
@@ -40,6 +40,7 @@ fn parse_version(text: &str) -> Option<Version> {
     Some(version)
 }
 
+/// All versions that have a CLI build for the current platform, sorted ascending.
 fn available_versions() -> Result<Vec<Version>, String> {
     let platform = platform().ok_or_else(|| {
         format!(
@@ -66,6 +67,7 @@ fn available_versions() -> Result<Vec<Version>, String> {
     Ok(versions)
 }
 
+/// Versions available for download, as "MAJOR.MINOR.PATCH" strings, sorted ascending.
 pub fn available_version_names() -> Result<Vec<String>, String> {
     Ok(available_versions()?
         .into_iter()
@@ -73,10 +75,12 @@ pub fn available_version_names() -> Result<Vec<String>, String> {
         .collect())
 }
 
+/// Resolve "8", "8.2" or "8.3.9" to the newest matching full version.
 pub fn resolve_version(input: &str) -> Result<String, String> {
     select_version(&available_versions()?, input)
 }
 
+/// Pick the newest version in `available` that matches `input`.
 fn select_version(available: &[Version], input: &str) -> Result<String, String> {
     let invalid_format_message = format!(
         "invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH",
@@ -104,6 +108,7 @@ fn select_version(available: &[Version], input: &str) -> Result<String, String> 
     }
 }
 
+/// Download URL of the CLI build for `version` (always a full MAJOR.MINOR.PATCH).
 pub fn get_download_url(version: &str) -> Option<String> {
     Some(format!(
         "{}/php-{}-cli-{}.tar.gz",

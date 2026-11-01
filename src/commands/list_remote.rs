@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use crate::{installed, version};
 
+/// List versions available for download (newest patch of each minor unless `all`).
 pub fn run(all: bool) {
     if let Err(error) = list_remote(all) {
         eprintln!("Error: {}", error);
