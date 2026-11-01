@@ -15,9 +15,11 @@ use clap_complete::Shell;
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Install a PHP version ("8", "8.3" or "8.3.9")
     Install { version: String },
     /// Remove an installed version (exact version, as shown by 'phpz list')
     Uninstall { version: String },
+    /// Switch the active PHP version
     Use { version: String },
     /// List installed versions, or the ones available for download with --remote
     List {
@@ -29,16 +31,20 @@ pub enum Commands {
         #[arg(long, requires = "remote")]
         all: bool,
     },
+    /// Deactivate the active PHP version
     Reset,
+    /// Show the active PHP version
     Current,
     /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
     Env,
     /// Print a shell completion script (bash, zsh, fish, elvish, powershell)
     Completions { shell: Shell },
+    /// Read and edit the active version's php.ini
     Config {
         #[command(subcommand)]
         command: config::ConfigCommands,
     },
+    /// Manage PHP extensions (not available yet)
     Ext {
         #[command(subcommand)]
         command: ext::ExtCommands,
