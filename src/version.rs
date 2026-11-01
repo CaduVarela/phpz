@@ -13,6 +13,8 @@ pub struct Build {
     pub sha256: Option<String>,
     /// Where the SHA-256 can be fetched when the listing does not carry it (Windows archives).
     sbom_url: Option<String>,
+    /// The source normally publishes a checksum, so a build without one is out of the ordinary.
+    pub expects_checksum: bool,
 }
 
 impl Build {

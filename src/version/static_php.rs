@@ -52,6 +52,7 @@ pub fn builds() -> Result<Vec<Build>, String> {
                 url: format!("{}/{}", BASE_URL, entry.name),
                 sha256: None,
                 sbom_url: None,
+                expects_checksum: false,
             })
         })
         .collect())

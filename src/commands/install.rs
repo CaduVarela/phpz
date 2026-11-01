@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::version::Build;
-use crate::{paths, shell, version};
+use crate::{interaction, paths, shell, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -19,14 +19,14 @@ date.timezone = UTC
 ";
 
 /// Install a specific PHP version
-pub fn run(version: String) {
-    if let Err(error) = install(&version) {
+pub fn run(version: String, allow_unverified: bool) {
+    if let Err(error) = install(&version, allow_unverified) {
         eprintln!("Error: {}", error);
         std::process::exit(1);
     }
 }
 
-fn install(requested_version: &str) -> Result<(), String> {
+fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String> {
     println!("Resolving version '{}'...", requested_version);
     let build = version::resolve_build(requested_version)?;
     let resolved_version = build.version_name();
@@ -42,6 +42,8 @@ fn install(requested_version: &str) -> Result<(), String> {
         println!("PHP {} is already installed.", resolved_version);
         return Ok(());
     }
+
+    confirm_unverified(&build, allow_unverified)?;
 
     // Clean up leftovers from a previous failed attempt
     if temporary_directory.exists() {
@@ -64,6 +66,51 @@ fn install(requested_version: &str) -> Result<(), String> {
     println!("Successfully installed PHP {}", resolved_version);
     shell::offer_setup();
     Ok(())
+}
+
+/// What to do about a build whose checksum is missing.
+#[derive(Debug, PartialEq)]
+enum Consent {
+    NotNeeded,
+    Given,
+    Ask,
+    Refused,
+}
+
+/// Only a build that should have had a checksum needs consent. Scripts cannot answer a question,
+/// so they must opt in with `--allow-unverified`.
+fn consent_for(missing_checksum_is_unusual: bool, allow_unverified: bool, interactive: bool) -> Consent {
+    if !missing_checksum_is_unusual {
+        Consent::NotNeeded
+    } else if allow_unverified {
+        Consent::Given
+    } else if interactive {
+        Consent::Ask
+    } else {
+        Consent::Refused
+    }
+}
+
+fn confirm_unverified(build: &Build, allow_unverified: bool) -> Result<(), String> {
+    let unusual = build.expects_checksum && build.sha256.is_none();
+    let version = build.version_name();
+
+    match consent_for(unusual, allow_unverified, interaction::is_interactive()) {
+        Consent::NotNeeded | Consent::Given => Ok(()),
+        Consent::Refused => Err(format!(
+            "PHP {} has no published checksum, so the download cannot be verified. \
+             Run phpz in a terminal to confirm, or pass --allow-unverified.",
+            version
+        )),
+        Consent::Ask => {
+            eprintln!("PHP {} has no published checksum, so the download cannot be verified.", version);
+            eprintln!("It is fetched over HTTPS from the official site, but nothing proves the file is intact.");
+            match interaction::confirm("Install it anyway?", false) {
+                Some(true) => Ok(()),
+                _ => Err("installation cancelled".to_string()),
+            }
+        }
+    }
 }
 
 fn populate(build: &Build, directory: &Path) -> Result<(), String> {
