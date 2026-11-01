@@ -27,7 +27,7 @@ It manages multiple **PHP CLI versions** without touching the system-wide PHP us
 
 ## Installation
 
-phpz is built from source with a recent [Rust toolchain](https://rustup.rs):
+phpz is built from source with [rustup](https://rustup.rs). The repository pins the Rust version in `rust-toolchain.toml`, so inside it `cargo` uses that version (run `rustup toolchain install` once if it is not installed yet; your other projects keep their own toolchain):
 
 ```bash
 git clone https://github.com/CaduVarela/phpz.git

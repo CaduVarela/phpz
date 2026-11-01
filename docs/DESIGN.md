@@ -235,6 +235,8 @@ Closing the output pipe early (`phpz list --remote | head -1`) used to end in a 
 
 `phpz completions <shell>` prints a completion script generated from the command definitions.
 
+**Pinned Rust.** `rust-toolchain.toml` fixes the compiler version (with `clippy` and `rustfmt`), and the CI installs exactly that with `rustup toolchain install` instead of following the newest stable. The CI runs `clippy -D warnings`, and a floating compiler made it break whenever a Rust release added a lint, for reasons unrelated to the change under review. It happened on the Windows pull request: the lint appeared only in Windows-only code, which the Linux machine never compiles. With the pin, a local `cargo clippy` and the CI use the same compiler and agree. To move to a newer Rust, change the version, run `cargo clippy --locked --all-targets -- -D warnings` on Linux and on Windows (some code only compiles there), fix what it reports, and commit.
+
 ---
 
 ## Cross-platform Support
