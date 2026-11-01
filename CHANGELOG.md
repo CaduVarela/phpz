@@ -7,17 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-01
+
+Adds Windows support and extension management.
+
 ### Added
 
 - `phpz ext list`, `phpz ext enable <name>` and `phpz ext disable <name>`. On Windows they switch the extensions that come as DLLs in the official zip, editing only the right line of `php.ini`. On Linux and macOS they report what is built into the static builds.
 - `phpz ext enable|disable <name> --global` keeps the choice in `~/.phpz/config.toml`. New installs apply it automatically and `phpz ext sync [--all]` applies it to installed versions. Extensions a version does not have are skipped with a message.
-
-## [0.2.0] - 2026-11-01
-
-Adds Windows support.
-
-### Added
-
 - Windows support (x64). `phpz install` downloads the official non-thread-safe zip from windows.php.net, verifies its SHA-256 and writes a `php.ini` with `extension_dir` and a default set of extensions. `phpz use` switches versions with a directory junction, which needs no administrator rights.
 - `phpz setup` and `phpz setup --undo` on Windows edit the user `PATH` in the registry, keeping the value's type and every other entry exactly as they were. `phpz env` prints a PowerShell line on Windows.
 - PHP 7.0 to 7.3 on Windows (their final releases: 7.0.33, 7.1.33, 7.2.34, 7.3.33), with the `php.ini` naming each series expects.
