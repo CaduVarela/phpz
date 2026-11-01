@@ -11,11 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Windows support (x64). `phpz install` downloads the official non-thread-safe zip from windows.php.net, verifies its SHA-256 and writes a `php.ini` with `extension_dir` and a default set of extensions. `phpz use` switches versions with a directory junction, which needs no administrator rights.
 - `phpz setup` and `phpz setup --undo` on Windows edit the user `PATH` in the registry, keeping the value's type and every other entry exactly as they were. `phpz env` prints a PowerShell line on Windows.
-- Older Windows patches (PHP 7.4 and newer) can be installed, for example `phpz install 8.3.12`, and are listed by `phpz list --remote --all`. They come from the windows.php.net archives. The SHA-256 is verified when the release has an SBOM; otherwise phpz says that no checksum is published.
+- PHP 7.0 to 7.3 on Windows (their final releases: 7.0.33, 7.1.33, 7.2.34, 7.3.33), with the `php.ini` naming each series expects.
+- `phpz install` asks for confirmation before installing a Windows build that has no published checksum, and refuses in scripts unless `--allow-unverified` is passed. Linux and macOS do not ask for now.
+- Older Windows patches (PHP 7.0 and newer) can be installed, for example `phpz install 8.3.12`, and are listed by `phpz list --remote --all`. They come from the windows.php.net archives. The SHA-256 is verified when the release has an SBOM; otherwise phpz says that no checksum is published.
 - `phpz use` warns on Windows when `PHP_INI_SCAN_DIR` or `PHPRC` are set, since they make PHP read configuration from another installation.
 - Downloads are verified against the published SHA-256 whenever the source provides one.
 - `PHPZ_HOME` changes the directory phpz uses instead of `~/.phpz`.
 - CI also builds and tests on Windows.
+
+### Changed
+
+- The question that follows the first install no longer accepts by default when the input is closed.
 
 ### Fixed
 

@@ -58,6 +58,7 @@ phpz completions bash > ~/.local/share/bash-completion/completions/phpz
 ```bash
 phpz list --remote      # list versions available for download (add --all for every patch)
 phpz install 8.3        # install the latest 8.3.x (also accepts "8" or "8.3.9")
+phpz install 7.3.33 --allow-unverified   # Windows: skip the question for a build with no published checksum
 phpz list               # list installed versions, marking the active one
 phpz uninstall 8.3.32   # remove an installed version (exact version, not the active one)
 phpz use 8.3            # switch the active version
@@ -116,7 +117,8 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 
 - On Linux and macOS the binaries are fully static. They ship with a fixed set of extensions (bcmath, curl, gd, mbstring, mysqlnd, openssl, pdo_mysql, pdo_pgsql, pdo_sqlite, redis, zip and others), and extensions that are not compiled in (for example `xdebug`, `intl` or `opcache`) cannot be loaded.
 - On Linux and macOS, downloads are not verified against a checksum, because upstream does not publish them.
-- On Windows, PHP 7.4 and newer are available (`phpz list --remote --all`), as the non-thread-safe x64 build, and the official builds need the Microsoft Visual C++ Redistributable. The newest release of each series and the most recent patches are verified against a published SHA-256. For most older patches windows.php.net publishes no checksum at all, so they are installed unverified and phpz says so.
+- On Windows, PHP 7.0 and newer are available (`phpz list --remote --all`), as the non-thread-safe x64 build, and the official builds need the Microsoft Visual C++ Redistributable. PHP 7.0 to 7.3 only have their final release (7.0.33, 7.1.33, 7.2.34, 7.3.33) in the official archive.
+- On Windows, the newest release of each series and the most recent patches are verified against a published SHA-256. For most older patches windows.php.net publishes no checksum at all. Installing one asks for confirmation (the default is no), and in a script it is refused unless you pass `--allow-unverified`. Linux and macOS builds have no checksum either and do not ask for now; phpz only prints a note.
 - On Windows, `PHP_INI_SCAN_DIR` or `PHPRC` set in your environment (for example by Scoop's PHP) make every PHP read configuration from outside its own directory, which can load extensions twice. `phpz use` warns about them and says how to clear them.
 - Windows builds the `PATH` of a program as the system `PATH` followed by the user `PATH`, so a PHP that sits on the *system* `PATH` (an XAMPP install, for example) is found before phpz's.
 
