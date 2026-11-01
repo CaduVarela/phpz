@@ -123,7 +123,7 @@ pub enum Commands {
 }
 
 impl Commands {
-    pub fn run(self) {
+    pub fn run(self) -> Result<(), String> {
         match self {
             Commands::Install {
                 version,
@@ -133,7 +133,7 @@ impl Commands {
                 build,
                 jobs,
             } => install::run(version, allow_unverified, variant, replace, build, jobs),
-            Commands::Uninstall { version } => uninstall::run(version),
+            Commands::Uninstall { version } => uninstall::run(&version),
             Commands::Use { version } => use_cmd::run(version),
             Commands::List {
                 remote: true,

@@ -6,11 +6,8 @@ use crate::php::installed;
 use crate::project::{self, PROJECT_FILE, VERSION_FILE};
 
 /// Pin the PHP version of the current directory, or show it
-pub fn run(version: Option<String>, unset: bool) {
-    if let Err(error) = execute(version, unset) {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run(version: Option<String>, unset: bool) -> Result<(), String> {
+    execute(version, unset)
 }
 
 fn execute(version: Option<String>, unset: bool) -> Result<(), String> {

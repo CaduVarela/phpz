@@ -98,11 +98,8 @@ impl ActiveVersion {
 }
 
 impl ExtCommands {
-    pub fn run(self) {
-        if let Err(error) = self.execute() {
-            eprintln!("Error: {}", error);
-            std::process::exit(1);
-        }
+    pub fn run(self) -> Result<(), String> {
+        self.execute()
     }
 
     fn execute(self) -> Result<(), String> {

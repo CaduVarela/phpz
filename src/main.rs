@@ -6,5 +6,8 @@ fn main() {
     if phpz::project::shim::invoked_as_shim() {
         std::process::exit(phpz::project::shim::run());
     }
-    Cli::parse().command.run();
+    if let Err(error) = Cli::parse().command.run() {
+        eprintln!("Error: {}", error);
+        std::process::exit(1);
+    }
 }

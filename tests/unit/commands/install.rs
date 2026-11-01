@@ -1,3 +1,5 @@
+use phpz::commands::install::archive::*;
+use phpz::commands::install::layout::*;
 use phpz::commands::install::*;
 use std::fs;
 use std::fs::File;

@@ -5,11 +5,8 @@ use crate::project::shim;
 use crate::release;
 
 /// Update phpz itself to the newest release
-pub fn run(check_only: bool, version: Option<String>) {
-    if let Err(error) = update(check_only, version) {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run(check_only: bool, version: Option<String>) -> Result<(), String> {
+    update(check_only, version)
 }
 
 fn update(check_only: bool, requested: Option<String>) -> Result<(), String> {

@@ -5,11 +5,8 @@ use crate::php::variant::{self, Variant};
 use crate::php::version;
 
 /// List versions available for download (newest patch of each minor unless `all`).
-pub fn run(all: bool, variant: Option<Variant>) {
-    if let Err(error) = list_remote(all, variant) {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run(all: bool, variant: Option<Variant>) -> Result<(), String> {
+    list_remote(all, variant)
 }
 
 fn list_remote(all: bool, variant: Option<Variant>) -> Result<(), String> {

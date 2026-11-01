@@ -4,11 +4,8 @@ use crate::php::variant::{self, Origin as BuildOrigin};
 use crate::platform::paths;
 
 /// List installed versions, marking the one that applies here and the default
-pub fn run() {
-    if let Err(error) = list() {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
-    }
+pub fn run() -> Result<(), String> {
+    list()
 }
 
 fn list() -> Result<(), String> {

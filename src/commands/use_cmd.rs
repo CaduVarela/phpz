@@ -8,14 +8,10 @@ use crate::project;
 use crate::project::shim;
 
 /// Switch the active PHP version, or the one the project pins when none is given
-pub fn run(version: Option<String>) {
-    let outcome = match version {
+pub fn run(version: Option<String>) -> Result<(), String> {
+    match version {
         Some(version) => activate(&version),
         None => pinned_request().and_then(|request| activate(&request)),
-    };
-    if let Err(error) = outcome {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
     }
 }
 

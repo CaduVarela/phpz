@@ -21,7 +21,7 @@ pub fn fetch(
     let total_bytes = response.content_length();
     let mut file = File::create(destination)
         .map_err(|error| format!("creating {}: {}", destination.display(), error))?;
-    let mut buffer = [0u8; 64 * 1024];
+    let mut buffer = vec![0u8; 64 * 1024];
     let mut downloaded_bytes: u64 = 0;
     let mut hasher = Sha256::new();
 
@@ -37,16 +37,17 @@ pub fn fetch(
         hasher.update(&buffer[..bytes_read]);
         downloaded_bytes += bytes_read as u64;
 
-        let megabytes = downloaded_bytes as f64 / 1e6;
+        let tenths = (downloaded_bytes + 50_000) / 100_000;
+        let megabytes = format!("{}.{}", tenths / 10, tenths % 10);
         match total_bytes {
             Some(total) if total > 0 => {
                 eprint!(
-                    "\r  {:>3}% ({:.1} MB)",
+                    "\r  {:>3}% ({} MB)",
                     downloaded_bytes * 100 / total,
                     megabytes
                 )
             }
-            _ => eprint!("\r  {:.1} MB", megabytes),
+            _ => eprint!("\r  {} MB", megabytes),
         }
     }
     eprintln!();
