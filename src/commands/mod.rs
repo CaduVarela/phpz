@@ -1,4 +1,5 @@
 pub mod install;
+pub mod uninstall;
 pub mod use_cmd;
 pub mod list;
 pub mod reset;
@@ -14,6 +15,8 @@ use clap_complete::Shell;
 #[derive(Subcommand)]
 pub enum Commands {
     Install { version: String },
+    /// Remove an installed version (exact version, as shown by 'phpz list')
+    Uninstall { version: String },
     Use { version: String },
     List,
     Reset,
@@ -36,6 +39,7 @@ impl Commands {
     pub fn run(self) {
         match self {
             Commands::Install { version } => install::run(version),
+            Commands::Uninstall { version } => uninstall::run(version),
             Commands::Use { version } => use_cmd::run(version),
             Commands::List => list::run(),
             Commands::Reset => reset::run(),
