@@ -109,7 +109,7 @@ A child process cannot change its parent shell's environment, so phpz cannot edi
 
   ```bash
   # >>> phpz >>>
-  export PATH="$HOME/.phpz/current/bin:$PATH"
+  export PATH="$HOME/.phpz/shims:$PATH"
   # <<< phpz <<<
   ```
 
@@ -117,18 +117,20 @@ A child process cannot change its parent shell's environment, so phpz cannot edi
 - After a successful `phpz install`, phpz offers to run the same setup. The question is asked only once (recorded in `~/.phpz/.setup-prompted`), only when stdin and stderr are terminals, and not when `PATH` is already configured. Scripts and CI are never prompted.
 - `phpz env` still prints the export line for shells that `setup` does not support.
 
-`PATH` points to the stable `~/.phpz/current/bin`, so `phpz use` takes effect immediately in every open shell without re-evaluating anything. On Unix only bash and zsh are supported by `setup`.
+`PATH` points to the shims directory, which never changes, so neither `phpz use` nor a project's `.php-version` needs anything to be re-evaluated: the `php` in it decides at each run (see Shims). On Unix only bash and zsh are supported by `setup`.
+
+**Migration from 0.2.** Version 0.2 put `current/bin` (Windows: `current`) on `PATH`, which can only ever be the default version. `setup` recognizes the old setup: on Unix `refresh_block` replaces the body of an existing block in place (keeping its line endings, and doing nothing when the body is already current), and on Windows it adds the shims entry first and leaves the old one alone. `setup --undo` removes the shims entry and the old one, and a `setup` followed by `--undo` still restores the profile or the registry value exactly. Until the user runs `setup`, `phpz use` says that project versions need it.
 
 **Windows.** There is no profile file to edit; the `PATH` lives in the registry, so `phpz setup` edits the **user** `PATH` (`HKEY_CURRENT_USER\Environment`, value `Path`):
 
-- It puts `<phpz home>\current` **first**, so phpz wins over other user entries such as Scoop's shims, and it matches existing entries ignoring case and a trailing backslash, which makes it idempotent.
+- It puts `<phpz home>\shims` **first**, so phpz wins over other user entries such as Scoop's shims, and it matches existing entries ignoring case and a trailing backslash, which makes it idempotent.
 - It writes the value back with the **same registry type** (`REG_EXPAND_SZ` normally), so entries such as `%USERPROFILE%\bin` keep expanding. Every other entry stays byte for byte as it was, and `setup --undo` restores the original value exactly.
 - It then broadcasts `WM_SETTINGCHANGE` so Explorer and newly opened terminals see the change. Terminals that are already open keep their old `PATH`; the message printed by `setup` shows the one-liner that updates the current one.
 - Windows builds a program's `PATH` as the system `PATH` followed by the user `PATH`. A PHP on the *system* `PATH` is therefore found first, and phpz does not touch the system `PATH` because that needs administrator rights.
 
 ### Isolation between versions
 
-On Unix, `bin/php` sets `PHPRC` and `PHP_INI_SCAN_DIR` itself. On Windows `php.exe` runs directly and inherits the environment, so a `PHP_INI_SCAN_DIR` left by another PHP installation (Scoop sets one) makes PHP read that installation's ini files as well, and every extension is reported as "already loaded". `phpz use` warns when either variable is set, offers `$env:NAME = $null` to clear it for the current terminal first, and mentions the permanent removal last because it also affects the other PHP. A small `php.exe` shim that clears the variables before starting the real one would remove the need for the warning; it is not implemented.
+On Unix, `bin/php` sets `PHPRC` and `PHP_INI_SCAN_DIR` itself. On Windows `php.exe` runs directly and inherits the environment, so a `PHP_INI_SCAN_DIR` left by another PHP installation (Scoop sets one) makes PHP read that installation's ini files as well, and every extension is reported as "already loaded". The shim removes that variable and sets `PHPRC` to the version's directory before it starts php.exe, so the problem is gone for everything started through `PATH`. Measured on Windows with a Scoop-style variable exported: 0 warnings through the shim, 10 when the same php.exe is started directly. `phpz use` still warns when the variable is set, because a direct call is not covered.
 
 `reset` does not clean other PHP installations out of `PATH`. It only deactivates phpz's own version.
 
@@ -145,6 +147,16 @@ A project can pin its PHP version with files that phpz finds by walking up from 
 - *Extension names only.* Extension lists accept plain names and reject anything with a path separator or odd characters. A file in a repository one has just cloned must not be able to make PHP load an arbitrary file.
 - `phpz local [version]` writes `.php-version` (and `--unset` removes it). It refuses when a `.phpz.toml` in the same directory already sets `php`, so two files never disagree. `phpz which` prints the php that would run here.
 - `phpz current`, `list`, `which`, `config` and `ext` use the version that applies in the current directory. `phpz use` still sets the default, and `uninstall` still refuses to remove the default.
+
+## Shims
+
+Choosing a version per folder has to happen when `php` runs, because the answer depends on the folder. That is what a shim is for, as in rbenv, pyenv or mise (`src/shim.rs`).
+
+- *The shim is phpz itself.* `~/.phpz/shims/php` is a symlink to the phpz binary on Unix and a copy of `phpz.exe` named `php.exe` on Windows (a copy keeps working when the original is replaced or moved, and symlinks need privileges there). `main` checks the name the process was started under; if it is `php`, phpz does not parse commands, it behaves as the php of the version that applies here. No shell script runs, so there is no extra process or shell start-up on each call.
+- *What it does.* It resolves the version exactly like `phpz current` does (project pin, else default, with the same errors), then starts that version's real binary with the original arguments. On Unix it uses `exec`, so the process is replaced and signals, stdin and the exit code are the real php's. On Windows it waits and returns the exit code. It sets `PHPRC` (and on Unix `PHP_INI_SCAN_DIR` to the version's `conf.d`, which is what the `bin/php` wrapper does) and on Windows removes `PHP_INI_SCAN_DIR`.
+- *Keeping the shim fresh.* `phpz setup`, `install` and `use` call `shim::ensure()`, which recreates the link or copy when it points somewhere else or is older than the running binary. It is best effort outside `setup`: a copy of an exe that is running cannot be replaced.
+- *No recursion.* The shim starts `libexec/php` or `php.exe` inside a version directory, which are never named like the shim directory entry, so it cannot start itself.
+- *Errors.* A pin that is not installed, or nothing selected, prints one line starting with `phpz:` on stderr and exits with 1, and no PHP runs.
 
 ---
 
@@ -225,6 +237,7 @@ src/
   version/           static_php.rs (Linux, macOS) and windows_php.rs (windows.php.net)
   installed.rs       installed versions and the default version
   project.rs         finding and reading .php-version and .phpz.toml
+  shim.rs            the php shim: starts the right version, keeps the link or copy fresh
   selection.rs       the version that applies in a directory, and where it comes from
   link.rs            symlink (Unix) or junction (Windows) for `current`
   shell.rs           SetupTarget: shell profile block (Unix) or user PATH (Windows), first-install question
@@ -265,7 +278,6 @@ Closing the output pipe early (`phpz list --remote | head -1`) used to end in a 
 
 ## Future Enhancements
 
-- A `php.exe` shim that clears the ini variables, replacing the Windows warning.
 - Download integrity verification with pinned checksums on Linux and macOS, and for the older Windows patches that publish none.
 - Extensions that come with extra libraries (imagick), by copying the libraries without ever overwriting an existing file.
 - Extensions that do not ship with PHP on Linux and macOS.
