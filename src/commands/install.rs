@@ -8,9 +8,9 @@ use tar::Archive;
 use std::collections::BTreeSet;
 
 use crate::settings::Settings;
-use crate::variant::{self, Variant};
+use crate::variant::{self, Origin, Variant};
 use crate::version::Build;
-use crate::{consent, download, extensions, interaction, paths, shell, shim, version};
+use crate::{consent, download, extensions, interaction, paths, shell, shim, source_build, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -22,8 +22,15 @@ date.timezone = UTC
 ";
 
 /// Install a specific PHP version
-pub fn run(version: String, allow_unverified: bool, variant: Option<Variant>, replace: bool) {
-    if let Err(error) = install(&version, allow_unverified, variant, replace) {
+pub fn run(version: String, allow_unverified: bool, variant: Option<Variant>, replace: bool, build: bool, jobs: Option<usize>) {
+    let result = if build {
+        install_from_source(&version, replace, jobs)
+    } else if replace && variant.is_none() {
+        Err("--replace needs --variant (or --build) to say what to switch the version to".to_string())
+    } else {
+        install(&version, allow_unverified, variant, replace)
+    };
+    if let Err(error) = result {
         eprintln!("Error: {}", error);
         std::process::exit(1);
     }
@@ -114,13 +121,13 @@ fn install(
         .map_err(|error| format!("creating versions directory: {}", error))?;
 
     let replacing = if final_directory.exists() {
-        let existing = variant::read(&final_directory);
-        if replace && !cfg!(windows) && existing != variant {
+        let existing = variant::read_origin(&final_directory);
+        if replace && !cfg!(windows) && existing != Origin::Prebuilt(variant) {
             true
         } else {
             let which = if cfg!(windows) { String::new() } else { format!(" (the {} build)", existing.name()) };
             println!("PHP {} is already installed{}.", resolved_version, which);
-            if !cfg!(windows) && requested_variant.is_some() && existing != variant {
+            if !cfg!(windows) && requested_variant.is_some() && existing != Origin::Prebuilt(variant) {
                 println!("To switch it to the {} build, add --replace.", variant.name());
             }
             return Ok(());
@@ -142,7 +149,7 @@ fn install(
         println!(
             "Switching PHP {} from the {} build to the {} build",
             resolved_version,
-            variant::read(&final_directory).name(),
+            variant::read_origin(&final_directory).name(),
             variant.name()
         );
     } else if cfg!(windows) || variant == variant::DEFAULT {
@@ -176,6 +183,153 @@ fn install(
         shell::offer_setup();
     }
     Ok(())
+}
+
+/// Compile a version from the official source at php.net, on Linux. The archive is checked against
+/// the SHA-256 and the PGP signature php.net publishes, and what the machine lacks is reported.
+fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usize>) -> Result<(), String> {
+    if !cfg!(target_os = "linux") {
+        return Err("--build is available on Linux only for now.".to_string());
+    }
+    println!("Looking for PHP '{}' at php.net...", requested_version);
+    let release = source_build::resolve(requested_version)?;
+    if release.series() < source_build::OLDEST_BUILDABLE {
+        let (major, minor) = source_build::OLDEST_BUILDABLE;
+        return Err(format!("the build recipe covers PHP {}.{} and newer, not {}.", major, minor, release.version));
+    }
+
+    let versions_directory = paths::versions_directory()?;
+    let final_directory = versions_directory.join(&release.version);
+    let temporary_directory = versions_directory.join(format!("{}.tmp", release.version));
+    fs::create_dir_all(&versions_directory).map_err(|error| format!("creating versions directory: {}", error))?;
+
+    let replacing = if final_directory.exists() {
+        let existing = variant::read_origin(&final_directory);
+        if replace && existing != Origin::Source {
+            true
+        } else {
+            println!("PHP {} is already installed (built from {}).", release.version, if existing == Origin::Source { "source".to_string() } else { format!("the {} build", existing.name()) });
+            if existing != Origin::Source {
+                println!("To replace it with one compiled here, add --replace.");
+            }
+            return Ok(());
+        }
+    } else {
+        false
+    };
+
+    let missing = source_build::missing_tools(source_build::tool_exists);
+    if !missing.is_empty() {
+        let names: Vec<&str> = missing.iter().map(|(name, _)| *name).collect();
+        return Err(format!(
+            "building PHP needs {}. On Debian or Ubuntu: sudo apt install build-essential",
+            names.join(" and ")
+        ));
+    }
+    let has_pkg_config = source_build::tool_exists("pkg-config");
+    if !has_pkg_config {
+        println!("Note: pkg-config was not found, so only the extensions that need no library will be built.");
+    }
+    let plan = source_build::plan(|package| has_pkg_config && source_build::pkg_config_has(package));
+    if release.series() < source_build::FIRST_OPENSSL_3_SERIES {
+        println!("Note: PHP before 8.1 may fail to compile with the OpenSSL 3 of current distributions.");
+    }
+
+    println!("Compiling PHP {} from the official source", release.version);
+    println!("  compiled in: {}", plan.built_in.join(", "));
+    println!("  as files   : {} (switch them with 'phpz ext enable|disable')", plan.shared.join(", "));
+    for skipped in &plan.skipped {
+        println!("  left out   : {} (on Debian or Ubuntu: sudo apt install {})", skipped.name, skipped.hint);
+    }
+
+    let work_directory = paths::phpz_home()?.join("build").join(&release.version);
+    let _ = fs::remove_dir_all(&work_directory);
+    fs::create_dir_all(&work_directory).map_err(|error| format!("creating {}: {}", work_directory.display(), error))?;
+    let log_path = work_directory.join("build.log");
+    let jobs = jobs
+        .or_else(|| std::thread::available_parallelism().ok().map(|count| count.get()))
+        .unwrap_or(1)
+        .max(1);
+
+    let result = compile_and_stage(&release, &final_directory, &work_directory, &plan, jobs, &log_path).and_then(|tree| {
+        let _ = fs::remove_dir_all(&temporary_directory);
+        fs::rename(&tree, &temporary_directory).map_err(|error| format!("moving the build into place: {}", error))?;
+        if replacing {
+            carry_over_configuration(&final_directory, &temporary_directory)?;
+        }
+        apply_global_extension_settings(&temporary_directory);
+        if replacing {
+            swap_in(&temporary_directory, &final_directory, &versions_directory.join(format!("{}.old", release.version)))
+        } else {
+            fs::rename(&temporary_directory, &final_directory).map_err(|error| format!("finalizing installation: {}", error))
+        }
+    });
+
+    match result {
+        Ok(()) => {
+            let _ = fs::remove_dir_all(&work_directory);
+        }
+        Err(error) => {
+            // The source tree is large; the log is what is worth keeping.
+            for leftover in ["src", "staging", "gnupg", "php.tar.gz", "php-keyring.gpg", "signature.asc"] {
+                let _ = fs::remove_dir_all(work_directory.join(leftover));
+            }
+            let _ = fs::remove_dir_all(&temporary_directory);
+            return Err(error);
+        }
+    }
+
+    println!("Successfully installed PHP {} (compiled from source)", release.version);
+    let _ = shim::ensure();
+    if !replacing {
+        shell::offer_setup();
+    }
+    Ok(())
+}
+
+/// Download, verify, unpack and compile. Returns the installed tree, laid out like any other version.
+fn compile_and_stage(
+    release: &source_build::SourceRelease,
+    final_directory: &Path,
+    work_directory: &Path,
+    plan: &source_build::Plan,
+    jobs: usize,
+    log_path: &Path,
+) -> Result<std::path::PathBuf, String> {
+    let archive = work_directory.join("php.tar.gz");
+    download::fetch(&release.url, &archive, Some(&release.sha256))?;
+    println!("Verified SHA-256 checksum");
+    match source_build::verify_signature(release, &archive, work_directory)? {
+        true => println!("Verified the PGP signature with the keyring from php.net"),
+        false => println!("Note: gpg was not found, so the PGP signature was not checked (the SHA-256 was)."),
+    }
+
+    let source = source_build::unpack(&archive, &work_directory.join("src"))?;
+    println!("Compiling with {} jobs. This takes a few minutes; the log is {}", jobs, log_path.display());
+    let staging = work_directory.join("staging");
+    let tree = source_build::compile(&source, final_directory, &staging, plan, jobs, log_path)?;
+    lay_out_source_build(&tree, plan)?;
+    Ok(tree)
+}
+
+/// Give a freshly compiled tree the layout every version has: the real binary in `libexec`, the
+/// wrapper in `bin`, a php.ini and a conf.d, and the shared extensions that were built switched on
+/// (except opcache, which is of no use to a command line script).
+fn lay_out_source_build(tree: &Path, plan: &source_build::Plan) -> Result<(), String> {
+    let libexec = tree.join("libexec");
+    fs::create_dir_all(&libexec).map_err(|error| error.to_string())?;
+    fs::rename(tree.join("bin").join("php"), libexec.join("php"))
+        .map_err(|error| format!("moving the php binary: {}", error))?;
+    write_wrapper_script(&tree.join("bin").join("php"))?;
+    fs::create_dir_all(tree.join("conf.d")).map_err(|error| error.to_string())?;
+    variant::write_source(tree)?;
+
+    let mut ini = crate::ini::IniDocument::parse(DEFAULT_INI);
+    let available = extensions::available_shared(tree);
+    for name in plan.shared.iter().filter(|name| **name != "opcache") {
+        extensions::enable(&mut ini, name, &available, || Ok(BTreeSet::new()))?;
+    }
+    ini.save(&tree.join("php.ini")).map_err(|error| format!("writing php.ini: {}", error))
 }
 
 /// A new build of a version keeps the old one's php.ini and conf.d, so switching builds does not
