@@ -230,7 +230,7 @@ fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usiz
     if !has_pkg_config {
         println!("Note: pkg-config was not found, so only the extensions that need no library will be built.");
     }
-    let plan = source_build::plan(|package| has_pkg_config && source_build::pkg_config_has(package));
+    let plan = source_build::plan(release.series(), |package| has_pkg_config && source_build::pkg_config_has(package));
     if release.series() < source_build::FIRST_OPENSSL_3_SERIES {
         println!("Note: PHP before 8.1 may fail to compile with the OpenSSL 3 of current distributions.");
     }
