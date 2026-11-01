@@ -6,7 +6,7 @@ use crate::extensions::{self, Outcome};
 use crate::{extension_install, pecl};
 use crate::ini::IniDocument;
 use crate::settings::Settings;
-use crate::{installed, paths};
+use crate::{installed, paths, selection};
 
 #[derive(Subcommand)]
 pub enum ExtCommands {
@@ -71,10 +71,9 @@ struct ActiveVersion {
 
 impl ActiveVersion {
     fn find() -> Result<ActiveVersion, String> {
-        let name = installed::active_version()?
-            .ok_or("no PHP version is active. Run 'phpz use <version>'.")?;
-        let directory = paths::versions_directory()?.join(&name);
-        Ok(ActiveVersion { name, directory })
+        let selection = selection::require_here()?;
+        let directory = selection.directory()?;
+        Ok(ActiveVersion { name: selection.version, directory })
     }
 
     fn ini_path(&self) -> PathBuf {

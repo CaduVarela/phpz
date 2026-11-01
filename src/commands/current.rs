@@ -1,9 +1,9 @@
-use crate::installed;
+use crate::selection;
 
-/// Show the active PHP version
+/// Show the PHP version that applies in the current directory
 pub fn run() {
-    match installed::active_version() {
-        Ok(Some(version)) => println!("{}", version),
+    match selection::select_here() {
+        Ok(Some(selection)) => println!("{}", selection.version),
         Ok(None) => println!("No PHP version is active. Run 'phpz use <version>'."),
         Err(error) => {
             eprintln!("Error: {}", error);

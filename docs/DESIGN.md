@@ -134,6 +134,20 @@ On Unix, `bin/php` sets `PHPRC` and `PHP_INI_SCAN_DIR` itself. On Windows `php.e
 
 ---
 
+## Per-project versions
+
+A project can pin its PHP version with files that phpz finds by walking up from the current directory (`src/project.rs`, `src/selection.rs`).
+
+- `.php-version`: the first line that is not blank or a `#` comment, as `8`, `8.3`, `8.3.9`, `v8.3` or `php-8.3`. Other tools read this file too, so it carries a version and nothing else.
+- `.phpz.toml`: `php = "8.3"` (a string, because TOML would turn `8.3` into a float) and an optional `[extensions]` table with `enable` and `disable` lists. It wins over a `.php-version` in the same directory; if it does not set `php`, the `.php-version` next to it supplies the version.
+- *Nearest wins.* The search stops at the first directory that has a `.phpz.toml`, or a `.php-version` that really contains a version. An empty or comment-only `.php-version` does not count, so the search goes on upwards. A file that cannot be parsed is an error and is never skipped, because skipping it would run the wrong PHP.
+- *Resolution.* A pin such as `8.3` picks the newest installed 8.3.x, like `phpz use`. If it matches nothing installed, the result is an error that names the file and suggests `phpz install`; it does not fall back to the default. With no pin, the default set by `phpz use` applies, and with neither, nothing is selected.
+- *Extension names only.* Extension lists accept plain names and reject anything with a path separator or odd characters. A file in a repository one has just cloned must not be able to make PHP load an arbitrary file.
+- `phpz local [version]` writes `.php-version` (and `--unset` removes it). It refuses when a `.phpz.toml` in the same directory already sets `php`, so two files never disagree. `phpz which` prints the php that would run here.
+- `phpz current`, `list`, `which`, `config` and `ext` use the version that applies in the current directory. `phpz use` still sets the default, and `uninstall` still refuses to remove the default.
+
+---
+
 ## php.ini Management
 
 Each version has its own `php.ini` under `versions/<version>/`. A default is written at install time and users are free to edit it.
@@ -209,7 +223,9 @@ src/
   paths.rs           phpz home (PHPZ_HOME), versions directory, current link, directory for PATH
   version.rs         builds, version selection
   version/           static_php.rs (Linux, macOS) and windows_php.rs (windows.php.net)
-  installed.rs       installed versions, active version, active php.ini path
+  installed.rs       installed versions and the default version
+  project.rs         finding and reading .php-version and .phpz.toml
+  selection.rs       the version that applies in a directory, and where it comes from
   link.rs            symlink (Unix) or junction (Windows) for `current`
   shell.rs           SetupTarget: shell profile block (Unix) or user PATH (Windows), first-install question
   user_path.rs       text edits of the Windows PATH and its registry access

@@ -1,7 +1,7 @@
 use clap::Subcommand;
 
 use crate::ini::{IniDocument, PHP_SECTION};
-use crate::installed;
+use crate::selection;
 
 #[derive(Subcommand)]
 pub enum ConfigCommands {
@@ -24,7 +24,7 @@ impl ConfigCommands {
     }
 
     fn execute(self) -> Result<(), String> {
-        let ini_path = installed::active_ini_path()?;
+        let ini_path = selection::require_here()?.directory()?.join("php.ini");
         let mut document = IniDocument::load(&ini_path)
             .map_err(|error| format!("reading {}: {}", ini_path.display(), error))?;
 
