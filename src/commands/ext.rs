@@ -165,9 +165,9 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
         }
         Outcome::Unavailable => {
             let reason = if available.is_empty() {
-                "This build has a fixed set of extensions."
+                "This build has a fixed set of extensions.".to_string()
             } else {
-                "It is not bundled with this PHP, and installing extra extensions is not available yet."
+                format!("It is not bundled with this PHP. Run 'phpz ext install {}' to download it.", name)
             };
             return Err(format!("{} is not available in PHP {}. {}", name, version.name, reason));
         }
@@ -246,6 +246,7 @@ fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> 
                     if !downloaded.is_empty() {
                         lines.push(format!("downloaded: {}", downloaded.join(", ")));
                     }
+                    failures += failed.len();
                     lines.extend(failed);
                 }
                 Err(error) => {
@@ -280,7 +281,7 @@ fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> 
     }
 
     if failures > 0 {
-        return Err(format!("{} version(s) could not be synced", failures));
+        return Err(format!("{} problem(s) found while syncing", failures));
     }
     Ok(())
 }
