@@ -3,13 +3,17 @@ use std::path::PathBuf;
 use clap::Subcommand;
 
 use crate::commands::install;
+use crate::extensions::pecl;
+use crate::extensions::settings::Settings;
 use crate::extensions::{self, Outcome};
-use crate::ini::IniDocument;
+use crate::php::ini::IniDocument;
+use crate::php::installed;
+use crate::php::selection;
+use crate::php::variant::{self, Variant};
+use crate::php::version;
+use crate::platform::interaction;
+use crate::platform::paths;
 use crate::project::{Project, PROJECT_FILE};
-use crate::settings::Settings;
-use crate::variant::{self, Variant};
-use crate::{extension_install, interaction, pecl, version};
-use crate::{installed, paths, selection};
 
 #[derive(Subcommand)]
 pub enum ExtCommands {
@@ -329,7 +333,7 @@ fn install_extension(
         return toggle(&name, true, global);
     }
 
-    let installed = extension_install::install_package(
+    let installed = extensions::install::install_package(
         &version.directory,
         &version.name,
         &name,
@@ -347,7 +351,7 @@ fn install_extension(
 }
 
 /// "enables intl, redis; disables xdebug"
-fn describe_choices(choices: &crate::settings::ExtensionSettings) -> String {
+fn describe_choices(choices: &crate::extensions::settings::ExtensionSettings) -> String {
     let mut parts = Vec::new();
     if !choices.enable.is_empty() {
         parts.push(format!("enables {}", choices.enable.join(", ")));
@@ -508,7 +512,7 @@ fn download_missing(
     let mut downloaded = Vec::new();
     let mut failed = Vec::new();
     for name in missing {
-        match extension_install::install_package(
+        match extensions::install::install_package(
             directory,
             php_version,
             &name,

@@ -18,7 +18,7 @@ pub mod which;
 use clap::Subcommand;
 use clap_complete::Shell;
 
-use crate::variant::Variant;
+use crate::php::variant::Variant;
 
 #[derive(Subcommand)]
 pub enum Commands {

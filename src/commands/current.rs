@@ -1,4 +1,4 @@
-use crate::selection;
+use crate::php::selection;
 
 /// Show the PHP version that applies in the current directory
 pub fn run() {

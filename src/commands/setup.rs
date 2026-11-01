@@ -1,4 +1,4 @@
-use crate::shell::SetupTarget;
+use crate::platform::shell::SetupTarget;
 
 /// Add phpz to your PATH (or remove it with `undo`)
 pub fn run(undo: bool) {

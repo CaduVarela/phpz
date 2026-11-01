@@ -44,17 +44,17 @@ try {
 }
 
 # Put the install directory on the user PATH, keeping the value's type and every other entry.
-$key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
+$environmentKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey("Environment", $true)
 try {
-    $current = $key.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
-    $kind = if ($key.GetValueNames() -contains "Path") { $key.GetValueKind("Path") } else { [Microsoft.Win32.RegistryValueKind]::ExpandString }
+    $current = $environmentKey.GetValue("Path", "", [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+    $kind = if ($environmentKey.GetValueNames() -contains "Path") { $environmentKey.GetValueKind("Path") } else { [Microsoft.Win32.RegistryValueKind]::ExpandString }
     $entries = $current -split ";" | Where-Object { $_ -ne "" }
     if ($entries -notcontains $installDirectory) {
-        $key.SetValue("Path", (($entries + $installDirectory) -join ";"), $kind)
+        $environmentKey.SetValue("Path", (($entries + $installDirectory) -join ";"), $kind)
         Write-Host "Added $installDirectory to your user PATH"
     }
 } finally {
-    $key.Close()
+    $environmentKey.Close()
 }
 
 & $target setup

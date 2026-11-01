@@ -1,5 +1,5 @@
 use super::*;
-use crate::variant::Variant;
+use crate::php::variant::Variant;
 use std::path::PathBuf;
 
 fn selection(version: &str, origin: Origin) -> Selection {

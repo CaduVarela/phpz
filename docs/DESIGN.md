@@ -150,7 +150,7 @@ A project can pin its PHP version with files that phpz finds by walking up from 
 
 ### Extensions per project
 
-`.phpz.toml` may carry `[extensions] enable = [...] disable = [...]` (names only; see above). They cannot be applied to the version's own php.ini, which every project shares, so the shim hands PHP a generated copy (`src/project_ini.rs`).
+`.phpz.toml` may carry `[extensions] enable = [...] disable = [...]` (names only; see above). They cannot be applied to the version's own php.ini, which every project shares, so the shim hands PHP a generated copy (`src/project/ini`).
 
 - *Generation.* When a project sets extension choices, the shim loads the version's `php.ini`, applies the choices with the same engine as `phpz ext enable|disable` (`extensions::apply_settings`), and, if anything changed, writes the result to `~/.phpz/projects/<key>/php.ini` and points `PHPRC` there. The key is a hash of the project folder and the version, so each pair has its own file. If the choices change nothing (everything is already as asked) the version's own directory is used and nothing is written.
 - *No staleness bookkeeping.* The file is rebuilt in memory on each run and written only when its content differs from what is there, so a change to the version's php.ini or to the project file takes effect on the next run, and an unchanged project costs a read, a few string edits and a comparison.
@@ -279,34 +279,35 @@ Keeping several `php.ini` profiles per version, such as `dev.ini` (verbose error
 
 ```
 src/
-  main.rs            entry point
-  paths.rs           phpz home (PHPZ_HOME), versions directory, current link, directory for PATH
-  version.rs         builds, version selection
-  version/           static_php.rs (Linux, macOS) and windows_php.rs (windows.php.net)
-  installed.rs       installed versions and the default version
-  project.rs         finding and reading .php-version and .phpz.toml
-  project_ini.rs     the php.ini generated for a project's extension choices
-  source_build.rs    compiling from php.net: release data, the configure recipe, signature check
-  variant.rs         the static-php builds, their recorded choice, which one covers an extension set
-  shim.rs            the php shim: starts the right version, keeps the link or copy fresh
-  selection.rs       the version that applies in a directory, and where it comes from
-  link.rs            symlink (Unix) or junction (Windows) for `current`
-  shell.rs           SetupTarget: shell profile block (Unix) or user PATH (Windows), first-install question
-  user_path.rs       text edits of the Windows PATH and its registry access
-  environment.rs     warning about PHP ini variables that break isolation
-  extensions.rs      shared / built-in / loaded extensions, enable, disable, applying settings
-  settings.rs        ~/.phpz/config.toml (global extension choices)
-  pecl.rs            finding extension builds on the PECL server, extracting the DLL
-  extension_build.rs compiling a PECL extension against a PHP compiled here
-  extension_install.rs  downloading an extension with consent and the remembered checksum
-  lock.rs            ~/.phpz/downloads.lock (checksums remembered from first use)
-  download.rs        download with progress and SHA-256 check
-  consent.rs         the rule for installing without a published checksum
-  interaction.rs     interactive terminal check and the yes/no question
-  pipe.rs            quiet exit when the reader of our output goes away
-  ini.rs             line-preserving php.ini editor
-  commands/          one module per subcommand
-  <module>/tests.rs  unit tests of <module>.rs (private items stay reachable)
+  main.rs               entry point
+  commands/             one module per subcommand
+  platform/             the operating system side
+    paths               phpz home (PHPZ_HOME), versions directory, current link, directory for PATH
+    link                symlink (Unix) or junction (Windows) for `current`
+    shell               shell profile block (Unix) or user PATH (Windows), first-install question
+    user_path           text edits of the Windows PATH and its registry access
+    environment         warning about PHP ini variables that break isolation
+    interaction         interactive terminal check and the yes/no question
+    pipe                quiet exit when the reader of our output goes away
+  php/                  PHP versions and where they come from
+    version             builds and version selection (static_php for Linux and macOS, windows_php for windows.php.net)
+    variant             the static-php builds, their recorded choice, which one covers an extension set
+    installed           installed versions and the default version
+    selection           the version that applies in a directory, and where it comes from
+    source_build        compiling from php.net: release data, the configure recipe, signature check
+    ini                 line-preserving php.ini editor
+  extensions/           shared, built-in and loaded extensions; enable, disable, applying settings
+    settings            ~/.phpz/config.toml (global extension choices)
+    pecl                finding extension builds on the PECL server, extracting the DLL
+    install             downloading an extension with consent and the remembered checksum
+    build               compiling a PECL extension against a PHP compiled here
+  download/             download with progress and SHA-256 check
+    lock                ~/.phpz/downloads.lock (checksums remembered from first use)
+    consent             the rule for installing without a published checksum
+  project/              finding and reading .php-version and .phpz.toml
+    ini                 the php.ini generated for a project's extension choices
+    shim                the php shim: starts the right version, keeps the link or copy fresh
+  <module>/tests.rs     unit tests of the module (private items stay reachable)
 tests/fixtures/      sample files used by the tests
 ```
 

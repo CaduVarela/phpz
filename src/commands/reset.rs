@@ -1,4 +1,5 @@
-use crate::{link, paths};
+use crate::platform::link;
+use crate::platform::paths;
 
 /// Deactivate phpz's PHP: remove the `current` link.
 pub fn run() {

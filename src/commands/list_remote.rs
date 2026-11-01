@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 
-use crate::variant::{self, Variant};
-use crate::{installed, version};
+use crate::php::installed;
+use crate::php::variant::{self, Variant};
+use crate::php::version;
 
 /// List versions available for download (newest patch of each minor unless `all`).
 pub fn run(all: bool, variant: Option<Variant>) {
