@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `phpz self-update` replaces phpz with the newest release, after checking its SHA-256 (`--check` only looks, `--version` picks a release).
 - On Linux, `ext install` knows the libraries and flags of imagick, gmagick, yaml, memcached, ssh2, rdkafka and gnupg, and names the missing Debian or Ubuntu package before compiling.
 
 ## [0.4.0] - 2026-11-01
