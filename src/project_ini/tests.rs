@@ -158,3 +158,52 @@ fn a_php_ini_without_an_extension_directory_is_kept_without_one() {
     let generated = fs::read_to_string(fixture.prepare(&["intl"], &[]).join("php.ini")).unwrap();
     assert!(!generated.contains("extension_dir"), "{}", generated);
 }
+
+#[test]
+fn prune_removes_only_what_belongs_to_a_missing_project_or_version() {
+    let fixture = Fixture::new();
+    let live_project = fixture.root.path().join("live");
+    let gone_project = fixture.root.path().join("gone");
+    fs::create_dir_all(&live_project).unwrap();
+    fs::create_dir_all(&gone_project).unwrap();
+    let versions = fixture.root.path().join("versions");
+
+    let wanted = |names: &[&str]| ExtensionSettings {
+        enable: names.iter().map(|name| name.to_string()).collect(),
+        disable: Default::default(),
+    };
+    let live = prepare(
+        &fixture.version(),
+        "8.3.36",
+        &live_project,
+        &wanted(&["intl"]),
+        &fixture.projects(),
+    )
+    .unwrap();
+    let gone = prepare(
+        &fixture.version(),
+        "8.3.36",
+        &gone_project,
+        &wanted(&["intl"]),
+        &fixture.projects(),
+    )
+    .unwrap();
+    let old_version = prepare(
+        &fixture.version(),
+        "7.4.33",
+        &live_project,
+        &wanted(&["intl"]),
+        &fixture.projects(),
+    )
+    .unwrap();
+    fs::remove_dir_all(&gone_project).unwrap();
+
+    let listed = prune_in(&fixture.projects(), &versions, true).unwrap();
+    assert_eq!(listed.len(), 2);
+    assert!(gone.exists() && old_version.exists());
+
+    prune_in(&fixture.projects(), &versions, false).unwrap();
+    assert!(live.exists());
+    assert!(!gone.exists());
+    assert!(!old_version.exists());
+}

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `phpz use` without a version switches to the version the current folder pins.
+- `phpz prune` removes the settings generated for projects that no longer exist (`--dry-run` only lists them).
 
 ## [0.3.0] - 2026-11-01
 

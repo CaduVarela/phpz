@@ -67,6 +67,7 @@ phpz list               # list installed versions, marking the active one
 phpz uninstall 8.3.32   # remove an installed version (exact version, not the active one)
 phpz use 8.3            # switch the active version
 phpz use                 # switch to the version this folder pins
+phpz prune               # remove generated files of projects that no longer exist
 phpz current            # show the version that applies in the current directory
 phpz local 8.2          # use PHP 8.2 in this folder and below (writes .php-version)
 phpz local              # show what applies here, and where it comes from
