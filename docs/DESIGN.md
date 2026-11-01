@@ -314,9 +314,9 @@ tests/
   fixtures/             sample files used by the tests
 ```
 
-Integration test files are not named after "install", "setup" or "update" (`tests/command_options.rs` is the one that tests `install`): Windows treats an executable with such a name and no manifest as an installer and refuses to run it without administrator rights (error 740). The CI runs as an administrator and does not notice; a developer's Windows machine does.
+Integration test files are not named after "install", "setup" or "update" (`tests/cli/command_options.rs` is the one that tests `install`): Windows treats an executable with such a name and no manifest as an installer and refuses to run it without administrator rights (error 740). The CI runs as an administrator and does not notice; a developer's Windows machine does.
 
-Version and installed-version selection are pure functions (`select_build`, `select_installed`), and so are the parsers and text edits that Windows needs (`parse_releases`, `add_entry`, `remove_entry`, `uncomment_directives`), so all of them are unit tested on every platform without network or registry access. `tests/closed_pipe.rs` runs the real binary with a closed output pipe. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings` on Linux and Windows.
+Version and installed-version selection are pure functions (`select_build`, `select_installed`), and so are the parsers and text edits that Windows needs (`parse_releases`, `add_entry`, `remove_entry`, `uncomment_directives`), so all of them are unit tested on every platform without network or registry access. `tests/cli/closed_pipe.rs` runs the real binary with a closed output pipe. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings` on Linux, macOS and Windows.
 
 Closing the output pipe early (`phpz list --remote | head -1`) used to end in a panic message. On Unix the default `SIGPIPE` behavior is restored at startup, and a panic hook turns a failed write caused by a broken pipe into a quiet exit, which is what covers Windows.
 
