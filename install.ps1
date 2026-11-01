@@ -25,9 +25,10 @@ try {
     Write-Host "Downloading $asset"
     $download = Join-Path $workDirectory $asset
     Invoke-WebRequest -Uri "$baseUrl/$asset" -OutFile $download -UseBasicParsing
-    $sums = (Invoke-WebRequest -Uri "$baseUrl/SHA256SUMS" -UseBasicParsing).Content
+    $sumsFile = Join-Path $workDirectory "SHA256SUMS"
+    Invoke-WebRequest -Uri "$baseUrl/SHA256SUMS" -OutFile $sumsFile -UseBasicParsing
 
-    $line = ($sums -split "`n") | Where-Object { $_ -match " $([regex]::Escape($asset))\s*$" } | Select-Object -First 1
+    $line = (Get-Content $sumsFile) | Where-Object { $_ -match " $([regex]::Escape($asset))\s*$" } | Select-Object -First 1
     if (-not $line) { throw "phpz install: no checksum is listed for $asset" }
     $expected = ($line -split "\s+")[0].ToLower()
     $actual = (Get-FileHash -Algorithm SHA256 $download).Hash.ToLower()
