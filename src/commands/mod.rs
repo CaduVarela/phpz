@@ -5,6 +5,8 @@ pub mod list;
 pub mod list_remote;
 pub mod reset;
 pub mod current;
+pub mod local;
+pub mod which;
 pub mod env;
 pub mod completions;
 pub mod setup;
@@ -40,8 +42,19 @@ pub enum Commands {
     },
     /// Deactivate the active PHP version
     Reset,
-    /// Show the active PHP version
+    /// Show the PHP version that applies in the current directory
     Current,
+    /// Pin the PHP version of the current directory (writes .php-version), or show it
+    Local {
+        /// "8", "8.3" or "8.3.9"
+        version: Option<String>,
+
+        /// Remove the .php-version of this directory
+        #[arg(long)]
+        unset: bool,
+    },
+    /// Print the path of the php that runs in the current directory
+    Which,
     /// Print shell code to put the active version on PATH (eval "$(phpz env)", or in PowerShell: phpz env | Invoke-Expression)
     Env,
     /// Add phpz to your PATH
@@ -74,6 +87,8 @@ impl Commands {
             Commands::List { remote: false, .. } => list::run(),
             Commands::Reset => reset::run(),
             Commands::Current => current::run(),
+            Commands::Local { version, unset } => local::run(version, unset),
+            Commands::Which => which::run(),
             Commands::Env => env::run(),
             Commands::Setup { undo } => setup::run(undo),
             Commands::Completions { shell } => completions::run(shell),
