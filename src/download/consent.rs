@@ -2,7 +2,7 @@ use crate::platform::interaction;
 
 /// What to do about a download whose checksum is missing.
 #[derive(Debug, PartialEq)]
-enum Consent {
+pub enum Consent {
     NotNeeded,
     Given,
     Ask,
@@ -10,7 +10,7 @@ enum Consent {
 }
 
 /// Whether a download without a published checksum needs consent.
-fn consent_for(
+pub fn consent_for(
     missing_checksum_is_unusual: bool,
     allow_unverified: bool,
     interactive: bool,
@@ -78,6 +78,3 @@ pub fn require_known_signer(fingerprint: &str, allow_unverified: bool) -> Result
         _ => Err("installation cancelled".to_string()),
     }
 }
-
-#[cfg(test)]
-mod tests;

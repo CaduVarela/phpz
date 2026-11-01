@@ -1,29 +1,10 @@
-mod commands;
-mod download;
-mod extensions;
-mod php;
-mod platform;
-mod project;
-
 use clap::Parser;
-
-#[derive(Parser)]
-#[command(
-    name = "phpz",
-    version,
-    about = "Simple PHP version manager",
-    long_about = None
-)]
-struct Cli {
-    #[command(subcommand)]
-    command: commands::Commands,
-}
+use phpz::Cli;
 
 fn main() {
-    platform::pipe::exit_quietly_on_closed_pipe();
-    if project::shim::invoked_as_shim() {
-        std::process::exit(project::shim::run());
+    phpz::platform::pipe::exit_quietly_on_closed_pipe();
+    if phpz::project::shim::invoked_as_shim() {
+        std::process::exit(phpz::project::shim::run());
     }
-    let cli = Cli::parse();
-    cli.command.run();
+    Cli::parse().command.run();
 }

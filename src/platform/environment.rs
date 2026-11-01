@@ -17,7 +17,7 @@ pub struct IniOverride {
     pub effect: &'static str,
 }
 
-fn find_overrides(lookup: impl Fn(&str) -> Option<String>) -> Vec<IniOverride> {
+pub fn find_overrides(lookup: impl Fn(&str) -> Option<String>) -> Vec<IniOverride> {
     INI_VARIABLES
         .iter()
         .filter_map(|&(name, effect)| {
@@ -31,7 +31,7 @@ fn find_overrides(lookup: impl Fn(&str) -> Option<String>) -> Vec<IniOverride> {
         .collect()
 }
 
-fn describe(found: &IniOverride) -> String {
+pub fn describe(found: &IniOverride) -> String {
     format!(
         "Warning: {name} is set to \"{value}\".\n  {effect}\n  \
          To use phpz's PHP cleanly, clear it in this terminal:\n    \
@@ -53,6 +53,3 @@ pub fn warn_about_ini_overrides() {
         eprintln!("{}", describe(&found));
     }
 }
-
-#[cfg(test)]
-mod tests;

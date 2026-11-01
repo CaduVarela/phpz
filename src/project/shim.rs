@@ -17,7 +17,7 @@ pub fn invoked_as_shim() -> bool {
         .unwrap_or(false)
 }
 
-fn is_shim_name(name: &OsStr) -> bool {
+pub fn is_shim_name(name: &OsStr) -> bool {
     Path::new(name)
         .file_stem()
         .map(|stem| stem.eq_ignore_ascii_case(SHIM_NAME))
@@ -26,14 +26,19 @@ fn is_shim_name(name: &OsStr) -> bool {
 
 /// How to start the php of one version.
 #[derive(Debug, PartialEq)]
-struct Launch {
-    program: PathBuf,
-    set: Vec<(&'static str, PathBuf)>,
-    remove: Vec<&'static str>,
+pub struct Launch {
+    pub program: PathBuf,
+    pub set: Vec<(&'static str, PathBuf)>,
+    pub remove: Vec<&'static str>,
 }
 
 /// Run php with this version's own ini directory, ignoring variables another PHP left behind.
-fn launch_plan(directory: &Path, ini_directory: &Path, windows: bool, has_libexec: bool) -> Launch {
+pub fn launch_plan(
+    directory: &Path,
+    ini_directory: &Path,
+    windows: bool,
+    has_libexec: bool,
+) -> Launch {
     if windows {
         Launch {
             program: directory.join("php.exe"),
@@ -158,6 +163,3 @@ fn install(target: &Path, directory: &Path) -> Result<(), String> {
         .map(|_| ())
         .map_err(|error| format!("copying phpz to {}: {}", copy.display(), error))
 }
-
-#[cfg(test)]
-mod tests;

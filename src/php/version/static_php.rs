@@ -9,11 +9,11 @@ use crate::php::variant::Variant;
 const BASE_URL: &str = "https://dl.static-php.dev/static-php-cli";
 
 #[derive(Debug, Deserialize)]
-struct IndexEntry {
-    name: String,
-    is_dir: bool,
+pub struct IndexEntry {
+    pub name: String,
+    pub is_dir: bool,
     #[serde(default)]
-    size: String,
+    pub size: String,
 }
 
 /// Platform suffix of static-php file names, e.g. "linux-x86_64".
@@ -61,7 +61,7 @@ pub fn builds(variant: Variant) -> Result<Vec<Build>, String> {
     Ok(builds)
 }
 
-fn parse_builds(entries: &[IndexEntry], variant: Variant, platform: &str) -> Vec<Build> {
+pub fn parse_builds(entries: &[IndexEntry], variant: Variant, platform: &str) -> Vec<Build> {
     let file_suffix = format!("-cli-{}.tar.gz", platform);
     entries
         .iter()
@@ -90,6 +90,3 @@ pub fn extensions(variant: Variant) -> Result<BTreeSet<String>, String> {
     let names: Vec<String> = fetch_json(&url, &format!("the {} extension list", variant.name()))?;
     Ok(names.iter().map(|name| extension_name(name)).collect())
 }
-
-#[cfg(test)]
-mod tests;

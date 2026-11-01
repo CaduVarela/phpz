@@ -450,7 +450,7 @@ fn lay_out_source_build(tree: &Path, plan: &source_build::Plan) -> Result<(), St
 }
 
 /// Keep the old build's php.ini and conf.d so switching builds keeps settings.
-fn carry_over_configuration(old: &Path, new: &Path) -> Result<(), String> {
+pub fn carry_over_configuration(old: &Path, new: &Path) -> Result<(), String> {
     let old_ini = old.join("php.ini");
     if old_ini.exists() {
         fs::copy(&old_ini, new.join("php.ini"))
@@ -467,7 +467,7 @@ fn carry_over_configuration(old: &Path, new: &Path) -> Result<(), String> {
 }
 
 /// Put `new` where `current` is, setting the old one aside first and putting it back on failure.
-fn swap_in(new: &Path, current: &Path, backup: &Path) -> Result<(), String> {
+pub fn swap_in(new: &Path, current: &Path, backup: &Path) -> Result<(), String> {
     if backup.exists() {
         let _ = fs::remove_dir_all(backup);
     }
@@ -568,7 +568,7 @@ fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> 
 }
 
 /// The php.ini lines to activate: extension_dir and the default extensions.
-fn windows_directives(uses_dll_names: bool) -> Vec<String> {
+pub fn windows_directives(uses_dll_names: bool) -> Vec<String> {
     let mut directives = vec!["extension_dir = \"ext\"".to_string()];
     directives.extend(WINDOWS_DEFAULT_EXTENSIONS.iter().map(|name| {
         if uses_dll_names {
@@ -581,7 +581,7 @@ fn windows_directives(uses_dll_names: bool) -> Vec<String> {
 }
 
 /// Activate `;directive` lines; `extension_dir` also matches the spaced spelling of PHP 7.0 to 7.2.
-fn uncomment_directives(content: &str, directives: &[String]) -> String {
+pub fn uncomment_directives(content: &str, directives: &[String]) -> String {
     content
         .split_inclusive('\n')
         .map(|line| {
@@ -606,7 +606,7 @@ fn uncomment_directives(content: &str, directives: &[String]) -> String {
 }
 
 /// Extract every entry of the zip below `destination`, refusing paths that escape it.
-fn extract_zip(archive_path: &Path, destination: &Path) -> Result<(), String> {
+pub fn extract_zip(archive_path: &Path, destination: &Path) -> Result<(), String> {
     let file = File::open(archive_path).map_err(|error| error.to_string())?;
     let mut archive =
         zip::ZipArchive::new(file).map_err(|error| format!("reading archive: {}", error))?;
@@ -709,6 +709,3 @@ exec \"$DIR/libexec/php\" \"$@\"
     fs::write(path, script).map_err(|error| format!("writing wrapper: {}", error))?;
     set_executable(path)
 }
-
-#[cfg(test)]
-mod tests;

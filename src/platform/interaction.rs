@@ -18,13 +18,10 @@ pub fn confirm(question: &str, default_yes: bool) -> Option<bool> {
     Some(interpret_answer(&answer, default_yes))
 }
 
-fn interpret_answer(answer: &str, default_yes: bool) -> bool {
+pub fn interpret_answer(answer: &str, default_yes: bool) -> bool {
     match answer.trim().to_lowercase().as_str() {
         "" => default_yes,
         "y" | "yes" => true,
         _ => false,
     }
 }
-
-#[cfg(test)]
-mod tests;

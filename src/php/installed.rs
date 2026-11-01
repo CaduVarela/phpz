@@ -69,6 +69,3 @@ pub fn active_version() -> Result<Option<String>, String> {
         Err(error) => Err(format!("reading {}: {}", link.display(), error)),
     }
 }
-
-#[cfg(test)]
-mod tests;

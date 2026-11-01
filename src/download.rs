@@ -86,6 +86,3 @@ pub fn check_sha256(actual: &str, expected: &str) -> Result<(), String> {
         ))
     }
 }
-
-#[cfg(test)]
-mod tests;

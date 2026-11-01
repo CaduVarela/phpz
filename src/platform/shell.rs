@@ -152,7 +152,7 @@ impl SetupTarget {
 }
 
 /// Path with the home directory written as "~".
-fn tilde_path_with_home(path: &Path, home: Option<&Path>) -> String {
+pub fn tilde_path_with_home(path: &Path, home: Option<&Path>) -> String {
     match home.and_then(|home| path.strip_prefix(home).ok()) {
         Some(rest) => format!("~/{}", rest.display()),
         None => path.display().to_string(),
@@ -214,7 +214,7 @@ pub fn refresh_block(content: &str) -> Result<Option<String>, String> {
 }
 
 /// Whether the profile has a block, and it is the one this phpz writes.
-fn block_is_current(content: &str) -> bool {
+pub fn block_is_current(content: &str) -> bool {
     content.contains(BLOCK_START) && matches!(refresh_block(content), Ok(None))
 }
 
@@ -336,6 +336,3 @@ pub fn offer_setup() {
         Err(error) => eprintln!("Error: {}", error),
     }
 }
-
-#[cfg(test)]
-mod tests;

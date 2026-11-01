@@ -29,7 +29,7 @@ pub fn ini_directory(
     )
 }
 
-fn prepare(
+pub fn prepare(
     version_directory: &Path,
     version: &str,
     project_directory: &Path,
@@ -93,7 +93,7 @@ fn make_extension_dir_absolute(ini: &mut IniDocument, version_directory: &Path) 
 }
 
 /// One generated directory per project folder and version.
-fn key(project_directory: &Path, version: &str) -> String {
+pub fn key(project_directory: &Path, version: &str) -> String {
     let digest = Sha256::digest(format!("{}\0{}", project_directory.display(), version));
     format!("{:x}", digest)[..16].to_string()
 }
@@ -105,7 +105,7 @@ pub fn prune(dry_run: bool) -> Result<Vec<String>, String> {
     prune_in(&home.join("projects"), &home.join("versions"), dry_run)
 }
 
-fn prune_in(
+pub fn prune_in(
     projects_directory: &Path,
     versions_directory: &Path,
     dry_run: bool,
@@ -143,6 +143,3 @@ fn prune_in(
     removed.sort();
     Ok(removed)
 }
-
-#[cfg(test)]
-mod tests;

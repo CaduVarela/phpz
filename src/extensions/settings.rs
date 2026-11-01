@@ -91,6 +91,3 @@ impl Settings {
             .map_err(|error| format!("writing {}: {}", path.display(), error))
     }
 }
-
-#[cfg(test)]
-mod tests;

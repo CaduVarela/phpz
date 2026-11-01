@@ -38,7 +38,7 @@ fn fetch_text(url: &str, what: &str) -> Result<String, String> {
 }
 
 /// One build per version; entries of `preferred` win over entries of `base`.
-fn merge(base: Vec<Build>, preferred: Vec<Build>) -> Vec<Build> {
+pub fn merge(base: Vec<Build>, preferred: Vec<Build>) -> Vec<Build> {
     let mut by_version: BTreeMap<Version, Build> = BTreeMap::new();
     for build in base.into_iter().chain(preferred) {
         by_version.insert(build.version, build);
@@ -46,7 +46,7 @@ fn merge(base: Vec<Build>, preferred: Vec<Build>) -> Vec<Build> {
     by_version.into_values().collect()
 }
 
-fn parse_releases(json: &str) -> Result<Vec<Build>, String> {
+pub fn parse_releases(json: &str) -> Result<Vec<Build>, String> {
     let releases: Value =
         serde_json::from_str(json).map_err(|error| format!("invalid release list: {}", error))?;
     let series = releases
@@ -82,7 +82,7 @@ fn parse_series(series: &Value) -> Option<Build> {
 }
 
 /// Version and packaging revision of an NTS x64 zip name; None for anything else.
-fn parse_archive_name(name: &str) -> Option<(Version, u32)> {
+pub fn parse_archive_name(name: &str) -> Option<(Version, u32)> {
     let middle = name.strip_prefix("php-")?.strip_suffix("-x64.zip")?;
     let (release, _toolchain) = middle.split_once("-nts-Win32-")?;
     let (version_text, revision) = match release.split_once('-') {
@@ -93,7 +93,7 @@ fn parse_archive_name(name: &str) -> Option<(Version, u32)> {
 }
 
 /// Every supported build in the archive page, newest rebuild of each version.
-fn parse_archive_listing(html: &str) -> Vec<Build> {
+pub fn parse_archive_listing(html: &str) -> Vec<Build> {
     let mut newest_rebuild: BTreeMap<Version, (u32, &str)> = BTreeMap::new();
 
     let file_names = html
@@ -148,7 +148,7 @@ pub fn fetch_checksum(sbom_url: &str) -> Result<Option<String>, String> {
 }
 
 /// `metadata.component.hashes` of a CycloneDX SBOM describes the zip itself.
-fn parse_sbom_checksum(json: &str) -> Option<String> {
+pub fn parse_sbom_checksum(json: &str) -> Option<String> {
     let sbom: Value = serde_json::from_str(json).ok()?;
     sbom.get("metadata")?
         .get("component")?
@@ -160,6 +160,3 @@ fn parse_sbom_checksum(json: &str) -> Option<String> {
         .as_str()
         .map(str::to_lowercase)
 }
-
-#[cfg(test)]
-mod tests;
