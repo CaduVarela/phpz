@@ -109,7 +109,7 @@ The lists come from the server when you ask, so they are never out of date. A la
 **Compiling from the official source (Linux).** `phpz install 8.3 --build` downloads the source from php.net, checks its SHA-256 and its PGP signature, and compiles it on your machine (about 4 minutes on 12 cores; `--jobs N` limits that). Nothing is hosted by anyone: it is php.net's own file, built by you. Why you might want it:
 
 - **The newest patch release.** The prebuilt builds trail php.net (they had 8.3.32 when php.net had 8.3.36). Compiling gives you the release that has the latest security fixes.
-- **Extensions you can switch.** `intl`, `soap` and `opcache` are built as `.so` files, so `phpz ext enable|disable` works on them like it does on Windows. `intl` and `soap` start enabled, and `opcache` starts off.
+- **Extensions you can switch.** `intl`, `soap` and `opcache` are built as `.so` files, so `phpz ext enable|disable` works on them like it does on Windows. `intl` and `soap` start enabled, and `opcache` starts off. (From PHP 8.5 `opcache` is part of PHP itself, so there is no file to switch and `phpz ext list` shows it as built in.)
 
 It needs a C compiler, `make` and, for each extension, its development library, which `pkg-config` finds. What your machine lacks is not an error: that extension is left out, and phpz says which package to install (for example `libicu-dev` for `intl`). The result sits next to the other versions, `phpz list` marks it `[source]`, and `--replace` compiles over a prebuilt version of the same number while keeping its `php.ini`. A failed build prints the first errors and keeps only the log.
 
