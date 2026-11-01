@@ -9,6 +9,7 @@ pub mod list_remote;
 pub mod local;
 pub mod prune;
 pub mod reset;
+pub mod self_update;
 pub mod setup;
 pub mod uninstall;
 pub mod use_cmd;
@@ -69,6 +70,16 @@ pub enum Commands {
     Variants,
     /// Deactivate the active PHP version
     Reset,
+    /// Update phpz itself to the newest release
+    SelfUpdate {
+        /// Only say whether a newer release exists
+        #[arg(long)]
+        check: bool,
+
+        /// Install this release instead of the newest one
+        #[arg(long)]
+        version: Option<String>,
+    },
     /// Remove generated files of projects that no longer exist
     Prune {
         /// Only list what would be removed
@@ -132,6 +143,7 @@ impl Commands {
             Commands::Variants => variants::run(),
             Commands::Reset => reset::run(),
             Commands::Prune { dry_run } => prune::run(dry_run),
+            Commands::SelfUpdate { check, version } => self_update::run(check, version),
             Commands::Current => current::run(),
             Commands::Local { version, unset } => local::run(version, unset),
             Commands::Which => which::run(),
