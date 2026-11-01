@@ -31,16 +31,31 @@ fn common_spellings_of_a_version_are_accepted() {
 #[test]
 fn the_version_file_uses_its_first_real_line() {
     let file = Path::new(".php-version");
-    assert_eq!(parse_version_file("8.3\n", file).unwrap().as_deref(), Some("8.3"));
-    assert_eq!(parse_version_file("# comment\n\n  8.2.1  \n8.4\n", file).unwrap().as_deref(), Some("8.2.1"));
+    assert_eq!(
+        parse_version_file("8.3\n", file).unwrap().as_deref(),
+        Some("8.3")
+    );
+    assert_eq!(
+        parse_version_file("# comment\n\n  8.2.1  \n8.4\n", file)
+            .unwrap()
+            .as_deref(),
+        Some("8.2.1")
+    );
     assert_eq!(parse_version_file("", file).unwrap(), None);
-    assert_eq!(parse_version_file("# only a comment\n", file).unwrap(), None);
+    assert_eq!(
+        parse_version_file("# only a comment\n", file).unwrap(),
+        None
+    );
 }
 
 #[test]
 fn a_version_file_with_nonsense_is_an_error_naming_the_file() {
     let error = parse_version_file("banana\n", Path::new("/p/.php-version")).unwrap_err();
-    assert!(error.contains("banana") && error.contains("/p/.php-version"), "{}", error);
+    assert!(
+        error.contains("banana") && error.contains("/p/.php-version"),
+        "{}",
+        error
+    );
 }
 
 #[test]
@@ -57,29 +72,51 @@ fn the_project_file_carries_a_version_and_extensions() {
 
 #[test]
 fn the_project_file_may_hold_only_extensions() {
-    let parsed = parse_project_file("[extensions]\nenable = [\"gd\"]\n", Path::new(".phpz.toml")).unwrap();
+    let parsed =
+        parse_project_file("[extensions]\nenable = [\"gd\"]\n", Path::new(".phpz.toml")).unwrap();
     assert_eq!(parsed.php, None);
     assert_eq!(parsed.extensions.enable, names(&["gd"]));
 }
 
 #[test]
 fn extension_names_cannot_be_paths_or_odd_characters() {
-    for bad in ["../evil", "C:\\x\\evil", "/etc/passwd", "a b", "x;y", "ev!l"] {
+    for bad in [
+        "../evil",
+        "C:\\x\\evil",
+        "/etc/passwd",
+        "a b",
+        "x;y",
+        "ev!l",
+    ] {
         let text = format!("[extensions]\nenable = [{:?}]\n", bad);
         let error = parse_project_file(&text, Path::new(".phpz.toml")).unwrap_err();
-        assert!(error.contains("invalid extension name"), "{}: {}", bad, error);
+        assert!(
+            error.contains("invalid extension name"),
+            "{}: {}",
+            bad,
+            error
+        );
     }
 }
 
 #[test]
 fn duplicate_extension_names_collapse() {
-    let parsed = parse_project_file("[extensions]\nenable = [\"intl\", \"INTL\", \"php_intl.dll\"]\n", Path::new("f")).unwrap();
+    let parsed = parse_project_file(
+        "[extensions]\nenable = [\"intl\", \"INTL\", \"php_intl.dll\"]\n",
+        Path::new("f"),
+    )
+    .unwrap();
     assert_eq!(parsed.extensions.enable, names(&["intl"]));
 }
 
 #[test]
 fn a_broken_project_file_is_an_error_naming_the_file() {
-    for text in ["php = 8.3\n", "php = \"latest\"\n", "[extensions\n", "extensions = 3\n"] {
+    for text in [
+        "php = 8.3\n",
+        "php = \"latest\"\n",
+        "[extensions\n",
+        "extensions = 3\n",
+    ] {
         let error = parse_project_file(text, Path::new("/p/.phpz.toml")).unwrap_err();
         assert!(error.contains("/p/.phpz.toml"), "{:?}: {}", text, error);
     }
@@ -106,7 +143,9 @@ fn nothing_is_found_without_files() {
     let root = tempfile::tempdir().unwrap();
     // The test machine could have a pin above the temporary directory, so only a pin below it counts.
     let found = find(root.path()).unwrap();
-    assert!(found.map(|project| !project.directory.starts_with(root.path())).unwrap_or(true));
+    assert!(found
+        .map(|project| !project.directory.starts_with(root.path()))
+        .unwrap_or(true));
 }
 
 #[test]
@@ -124,7 +163,11 @@ fn the_project_file_beats_the_version_file_in_the_same_directory() {
 fn a_project_file_without_a_version_defers_to_the_version_file_next_to_it() {
     let root = tempfile::tempdir().unwrap();
     write(root.path(), ".php-version", "8.1\n");
-    write(root.path(), ".phpz.toml", "[extensions]\nenable = [\"gd\"]\n");
+    write(
+        root.path(),
+        ".phpz.toml",
+        "[extensions]\nenable = [\"gd\"]\n",
+    );
 
     let project = find(root.path()).unwrap().unwrap();
     assert_eq!(project.php.unwrap().file, root.path().join(".php-version"));
@@ -153,7 +196,11 @@ fn a_broken_file_in_the_way_is_reported_and_not_skipped() {
 fn only_a_project_file_that_sets_php_blocks_local() {
     let root = tempfile::tempdir().unwrap();
     assert!(!project_file_pins_php(root.path()).unwrap());
-    write(root.path(), ".phpz.toml", "[extensions]\nenable = [\"gd\"]\n");
+    write(
+        root.path(),
+        ".phpz.toml",
+        "[extensions]\nenable = [\"gd\"]\n",
+    );
     assert!(!project_file_pins_php(root.path()).unwrap());
     write(root.path(), ".phpz.toml", "php = \"8.3\"\n");
     assert!(project_file_pins_php(root.path()).unwrap());

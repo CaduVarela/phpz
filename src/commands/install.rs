@@ -10,7 +10,9 @@ use std::collections::BTreeSet;
 use crate::settings::Settings;
 use crate::variant::{self, Origin, Variant};
 use crate::version::Build;
-use crate::{consent, download, extensions, interaction, paths, shell, shim, source_build, version};
+use crate::{
+    consent, download, extensions, interaction, paths, shell, shim, source_build, version,
+};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -22,11 +24,21 @@ date.timezone = UTC
 ";
 
 /// Install a specific PHP version
-pub fn run(version: String, allow_unverified: bool, variant: Option<Variant>, replace: bool, build: bool, jobs: Option<usize>) {
+pub fn run(
+    version: String,
+    allow_unverified: bool,
+    variant: Option<Variant>,
+    replace: bool,
+    build: bool,
+    jobs: Option<usize>,
+) {
     let result = if build {
         install_from_source(&version, replace, jobs)
     } else if replace && variant.is_none() {
-        Err("--replace needs --variant (or --build) to say what to switch the version to".to_string())
+        Err(
+            "--replace needs --variant (or --build) to say what to switch the version to"
+                .to_string(),
+        )
     } else {
         install(&version, allow_unverified, variant, replace)
     };
@@ -41,12 +53,14 @@ pub fn switch_build(version: &str, variant: Variant) -> Result<(), String> {
     install(version, false, Some(variant), true)
 }
 
-/// Which build to install: the one asked for, or the default, or a larger one the user agrees to
-/// because their global extension settings need it. Windows has a single official build.
+/// Which build to install: the one asked for, the default, or a larger one the user accepts.
 fn choose_variant(requested: Option<Variant>) -> Result<Variant, String> {
     if cfg!(windows) {
         return match requested {
-            Some(_) => Err("--variant is for Linux and macOS. Windows has one official build per version.".to_string()),
+            Some(_) => Err(
+                "--variant is for Linux and macOS. Windows has one official build per version."
+                    .to_string(),
+            ),
             None => Ok(variant::DEFAULT),
         };
     }
@@ -55,11 +69,13 @@ fn choose_variant(requested: Option<Variant>) -> Result<Variant, String> {
         return Ok(variant);
     }
     // Looking for a larger build must never get in the way of installing the usual one.
-    Ok(offer_larger_build().ok().flatten().unwrap_or(variant::DEFAULT))
+    Ok(offer_larger_build()
+        .ok()
+        .flatten()
+        .unwrap_or(variant::DEFAULT))
 }
 
-/// When the global extension settings enable something the default build lacks, offer the smallest
-/// build that has all of it, and say what that build lacks. Only in a terminal, and only asking.
+/// Offer the smallest build that has every extension the global settings enable.
 fn offer_larger_build() -> Result<Option<Variant>, String> {
     if !interaction::is_interactive() {
         return Ok(None);
@@ -92,14 +108,27 @@ fn offer_larger_build() -> Result<Option<Variant>, String> {
         .map(|(_, extensions)| extensions.clone())
         .unwrap_or_default();
 
-    eprintln!("Your global extension settings enable {}, which the {} build lacks.", missing.join(", "), variant::DEFAULT.name());
-    eprintln!("The {} build has them, and is a larger download.", target.name());
+    eprintln!(
+        "Your global extension settings enable {}, which the {} build lacks.",
+        missing.join(", "),
+        variant::DEFAULT.name()
+    );
+    eprintln!(
+        "The {} build has them, and is a larger download.",
+        target.name()
+    );
     let lost = variant::lost_by_switching(&default_extensions, &target_extensions);
     if !lost.is_empty() {
-        eprintln!("It lacks {}, which the {} build has.", lost.join(", "), variant::DEFAULT.name());
+        eprintln!(
+            "It lacks {}, which the {} build has.",
+            lost.join(", "),
+            variant::DEFAULT.name()
+        );
     }
     let question = format!("Use the {} build for this version?", target.name());
-    Ok(interaction::confirm(&question, false).filter(|answer| *answer).map(|_| target))
+    Ok(interaction::confirm(&question, false)
+        .filter(|answer| *answer)
+        .map(|_| target))
 }
 
 fn install(
@@ -125,10 +154,20 @@ fn install(
         if replace && !cfg!(windows) && existing != Origin::Prebuilt(variant) {
             true
         } else {
-            let which = if cfg!(windows) { String::new() } else { format!(" (the {} build)", existing.name()) };
+            let which = if cfg!(windows) {
+                String::new()
+            } else {
+                format!(" (the {} build)", existing.name())
+            };
             println!("PHP {} is already installed{}.", resolved_version, which);
-            if !cfg!(windows) && requested_variant.is_some() && existing != Origin::Prebuilt(variant) {
-                println!("To switch it to the {} build, add --replace.", variant.name());
+            if !cfg!(windows)
+                && requested_variant.is_some()
+                && existing != Origin::Prebuilt(variant)
+            {
+                println!(
+                    "To switch it to the {} build, add --replace.",
+                    variant.name()
+                );
             }
             return Ok(());
         }
@@ -155,7 +194,11 @@ fn install(
     } else if cfg!(windows) || variant == variant::DEFAULT {
         println!("Installing PHP {}", resolved_version);
     } else {
-        println!("Installing PHP {} (the {} build)", resolved_version, variant.name());
+        println!(
+            "Installing PHP {} (the {} build)",
+            resolved_version,
+            variant.name()
+        );
     }
     let result = populate(&build, &temporary_directory).and_then(|_| {
         if replacing {
@@ -185,9 +228,12 @@ fn install(
     Ok(())
 }
 
-/// Compile a version from the official source at php.net, on Linux. The archive is checked against
-/// the SHA-256 and the PGP signature php.net publishes, and what the machine lacks is reported.
-fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usize>) -> Result<(), String> {
+/// Compile a version from the official source at php.net, verifying SHA-256 and signature.
+fn install_from_source(
+    requested_version: &str,
+    replace: bool,
+    jobs: Option<usize>,
+) -> Result<(), String> {
     if !cfg!(target_os = "linux") {
         return Err("--build is available on Linux only for now.".to_string());
     }
@@ -195,20 +241,32 @@ fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usiz
     let release = source_build::resolve(requested_version)?;
     if release.series() < source_build::OLDEST_BUILDABLE {
         let (major, minor) = source_build::OLDEST_BUILDABLE;
-        return Err(format!("the build recipe covers PHP {}.{} and newer, not {}.", major, minor, release.version));
+        return Err(format!(
+            "the build recipe covers PHP {}.{} and newer, not {}.",
+            major, minor, release.version
+        ));
     }
 
     let versions_directory = paths::versions_directory()?;
     let final_directory = versions_directory.join(&release.version);
     let temporary_directory = versions_directory.join(format!("{}.tmp", release.version));
-    fs::create_dir_all(&versions_directory).map_err(|error| format!("creating versions directory: {}", error))?;
+    fs::create_dir_all(&versions_directory)
+        .map_err(|error| format!("creating versions directory: {}", error))?;
 
     let replacing = if final_directory.exists() {
         let existing = variant::read_origin(&final_directory);
         if replace && existing != Origin::Source {
             true
         } else {
-            println!("PHP {} is already installed (built from {}).", release.version, if existing == Origin::Source { "source".to_string() } else { format!("the {} build", existing.name()) });
+            println!(
+                "PHP {} is already installed (built from {}).",
+                release.version,
+                if existing == Origin::Source {
+                    "source".to_string()
+                } else {
+                    format!("the {} build", existing.name())
+                }
+            );
             if existing != Origin::Source {
                 println!("To replace it with one compiled here, add --replace.");
             }
@@ -230,38 +288,67 @@ fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usiz
     if !has_pkg_config {
         println!("Note: pkg-config was not found, so only the extensions that need no library will be built.");
     }
-    let plan = source_build::plan(release.series(), |package| has_pkg_config && source_build::pkg_config_has(package));
+    let plan = source_build::plan(release.series(), |package| {
+        has_pkg_config && source_build::pkg_config_has(package)
+    });
     if release.series() < source_build::FIRST_OPENSSL_3_SERIES {
-        println!("Note: PHP before 8.1 may fail to compile with the OpenSSL 3 of current distributions.");
+        println!(
+            "Note: PHP before 8.1 may fail to compile with the OpenSSL 3 of current distributions."
+        );
     }
 
     println!("Compiling PHP {} from the official source", release.version);
     println!("  compiled in: {}", plan.built_in.join(", "));
-    println!("  as files   : {} (switch them with 'phpz ext enable|disable')", plan.shared.join(", "));
+    println!(
+        "  as files   : {} (switch them with 'phpz ext enable|disable')",
+        plan.shared.join(", ")
+    );
     for skipped in &plan.skipped {
-        println!("  left out   : {} (on Debian or Ubuntu: sudo apt install {})", skipped.name, skipped.hint);
+        println!(
+            "  left out   : {} (on Debian or Ubuntu: sudo apt install {})",
+            skipped.name, skipped.hint
+        );
     }
 
     let work_directory = paths::phpz_home()?.join("build").join(&release.version);
     let _ = fs::remove_dir_all(&work_directory);
-    fs::create_dir_all(&work_directory).map_err(|error| format!("creating {}: {}", work_directory.display(), error))?;
+    fs::create_dir_all(&work_directory)
+        .map_err(|error| format!("creating {}: {}", work_directory.display(), error))?;
     let log_path = work_directory.join("build.log");
     let jobs = jobs
-        .or_else(|| std::thread::available_parallelism().ok().map(|count| count.get()))
+        .or_else(|| {
+            std::thread::available_parallelism()
+                .ok()
+                .map(|count| count.get())
+        })
         .unwrap_or(1)
         .max(1);
 
-    let result = compile_and_stage(&release, &final_directory, &work_directory, &plan, jobs, &log_path).and_then(|tree| {
+    let result = compile_and_stage(
+        &release,
+        &final_directory,
+        &work_directory,
+        &plan,
+        jobs,
+        &log_path,
+    )
+    .and_then(|tree| {
         let _ = fs::remove_dir_all(&temporary_directory);
-        fs::rename(&tree, &temporary_directory).map_err(|error| format!("moving the build into place: {}", error))?;
+        fs::rename(&tree, &temporary_directory)
+            .map_err(|error| format!("moving the build into place: {}", error))?;
         if replacing {
             carry_over_configuration(&final_directory, &temporary_directory)?;
         }
         apply_global_extension_settings(&temporary_directory);
         if replacing {
-            swap_in(&temporary_directory, &final_directory, &versions_directory.join(format!("{}.old", release.version)))
+            swap_in(
+                &temporary_directory,
+                &final_directory,
+                &versions_directory.join(format!("{}.old", release.version)),
+            )
         } else {
-            fs::rename(&temporary_directory, &final_directory).map_err(|error| format!("finalizing installation: {}", error))
+            fs::rename(&temporary_directory, &final_directory)
+                .map_err(|error| format!("finalizing installation: {}", error))
         }
     });
 
@@ -271,7 +358,14 @@ fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usiz
         }
         Err(error) => {
             // The source tree is large; the log is what is worth keeping.
-            for leftover in ["src", "staging", "gnupg", "php.tar.gz", "php-keyring.gpg", "signature.asc"] {
+            for leftover in [
+                "src",
+                "staging",
+                "gnupg",
+                "php.tar.gz",
+                "php-keyring.gpg",
+                "signature.asc",
+            ] {
                 let _ = fs::remove_dir_all(work_directory.join(leftover));
             }
             let _ = fs::remove_dir_all(&temporary_directory);
@@ -279,7 +373,10 @@ fn install_from_source(requested_version: &str, replace: bool, jobs: Option<usiz
         }
     }
 
-    println!("Successfully installed PHP {} (compiled from source)", release.version);
+    println!(
+        "Successfully installed PHP {} (compiled from source)",
+        release.version
+    );
     let _ = shim::ensure();
     if !replacing {
         shell::offer_setup();
@@ -301,20 +398,24 @@ fn compile_and_stage(
     println!("Verified SHA-256 checksum");
     match source_build::verify_signature(release, &archive, work_directory)? {
         true => println!("Verified the PGP signature with the keyring from php.net"),
-        false => println!("Note: gpg was not found, so the PGP signature was not checked (the SHA-256 was)."),
+        false => println!(
+            "Note: gpg was not found, so the PGP signature was not checked (the SHA-256 was)."
+        ),
     }
 
     let source = source_build::unpack(&archive, &work_directory.join("src"))?;
-    println!("Compiling with {} jobs. This takes a few minutes; the log is {}", jobs, log_path.display());
+    println!(
+        "Compiling with {} jobs. This takes a few minutes; the log is {}",
+        jobs,
+        log_path.display()
+    );
     let staging = work_directory.join("staging");
     let tree = source_build::compile(&source, final_directory, &staging, plan, jobs, log_path)?;
     lay_out_source_build(&tree, plan)?;
     Ok(tree)
 }
 
-/// Give a freshly compiled tree the layout every version has: the real binary in `libexec`, the
-/// wrapper in `bin`, a php.ini and a conf.d, and the shared extensions that were built switched on
-/// (except opcache, which is of no use to a command line script).
+/// Give a freshly compiled tree the standard layout, enabling the shared extensions built.
 fn lay_out_source_build(tree: &Path, plan: &source_build::Plan) -> Result<(), String> {
     let libexec = tree.join("libexec");
     fs::create_dir_all(&libexec).map_err(|error| error.to_string())?;
@@ -329,15 +430,16 @@ fn lay_out_source_build(tree: &Path, plan: &source_build::Plan) -> Result<(), St
     for name in plan.shared.iter().filter(|name| **name != "opcache") {
         extensions::enable(&mut ini, name, &available, || Ok(BTreeSet::new()))?;
     }
-    ini.save(&tree.join("php.ini")).map_err(|error| format!("writing php.ini: {}", error))
+    ini.save(&tree.join("php.ini"))
+        .map_err(|error| format!("writing php.ini: {}", error))
 }
 
-/// A new build of a version keeps the old one's php.ini and conf.d, so switching builds does not
-/// lose the settings the user made.
+/// Keep the old build's php.ini and conf.d so switching builds keeps settings.
 fn carry_over_configuration(old: &Path, new: &Path) -> Result<(), String> {
     let old_ini = old.join("php.ini");
     if old_ini.exists() {
-        fs::copy(&old_ini, new.join("php.ini")).map_err(|error| format!("keeping php.ini: {}", error))?;
+        fs::copy(&old_ini, new.join("php.ini"))
+            .map_err(|error| format!("keeping php.ini: {}", error))?;
     }
     if let Ok(entries) = fs::read_dir(old.join("conf.d")) {
         fs::create_dir_all(new.join("conf.d")).map_err(|error| error.to_string())?;
@@ -354,7 +456,8 @@ fn swap_in(new: &Path, current: &Path, backup: &Path) -> Result<(), String> {
     if backup.exists() {
         let _ = fs::remove_dir_all(backup);
     }
-    fs::rename(current, backup).map_err(|error| format!("setting the old build aside: {}", error))?;
+    fs::rename(current, backup)
+        .map_err(|error| format!("setting the old build aside: {}", error))?;
     if let Err(error) = fs::rename(new, current) {
         let _ = fs::rename(backup, current);
         return Err(format!("installing the new build: {}", error));
@@ -380,14 +483,21 @@ fn apply_global_extension_settings(directory: &Path) {
             }
         }
         Ok(_) => {}
-        Err(error) => eprintln!("Note: could not apply your global extension settings: {}", error),
+        Err(error) => eprintln!(
+            "Note: could not apply your global extension settings: {}",
+            error
+        ),
     }
 }
 
 /// Windows builds that should have a checksum but do not need the user's consent.
 fn confirm_unverified(build: &Build, allow_unverified: bool) -> Result<(), String> {
     let unusual = build.expects_checksum && build.sha256.is_none();
-    consent::require(unusual, &format!("PHP {}", build.version_name()), allow_unverified)
+    consent::require(
+        unusual,
+        &format!("PHP {}", build.version_name()),
+        allow_unverified,
+    )
 }
 
 fn populate(build: &Build, directory: &Path) -> Result<(), String> {
@@ -399,15 +509,29 @@ fn populate(build: &Build, directory: &Path) -> Result<(), String> {
 }
 
 /// Extensions enabled by default in the Windows php.ini, when the build ships them.
-/// "gd2" is how PHP 7.0 to 7.3 name GD; only the spelling the template has gets activated.
 const WINDOWS_DEFAULT_EXTENSIONS: &[&str] = &[
-    "bz2", "curl", "exif", "fileinfo", "gd", "gd2", "gmp", "intl", "mbstring", "mysqli", "openssl",
-    "pdo_mysql", "pdo_pgsql", "pdo_sqlite", "pgsql", "sockets", "sodium", "sqlite3", "zip",
+    "bz2",
+    "curl",
+    "exif",
+    "fileinfo",
+    "gd",
+    "gd2",
+    "gmp",
+    "intl",
+    "mbstring",
+    "mysqli",
+    "openssl",
+    "pdo_mysql",
+    "pdo_pgsql",
+    "pdo_sqlite",
+    "pgsql",
+    "sockets",
+    "sodium",
+    "sqlite3",
+    "zip",
 ];
 
-/// Official Windows zip, extracted as it comes:
-///   php.exe, DLLs, ext\   from the zip
-///   php.ini               php.ini-development with extension_dir and common extensions enabled
+/// Official Windows zip, extracted with a php.ini made from the development template.
 fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.zip");
     download::fetch(&build.url, &archive_path, build.sha256.as_deref())?;
@@ -421,8 +545,11 @@ fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> 
 
     // PHP 7.0 and 7.1 name extensions by DLL ("extension=php_curl.dll"); 7.2 and later use short names.
     let directives = windows_directives(!build.at_least(7, 2));
-    fs::write(directory.join("php.ini"), uncomment_directives(&template, &directives))
-        .map_err(|error| format!("writing php.ini: {}", error))
+    fs::write(
+        directory.join("php.ini"),
+        uncomment_directives(&template, &directives),
+    )
+    .map_err(|error| format!("writing php.ini: {}", error))
 }
 
 /// The php.ini lines to activate: extension_dir and the default extensions.
@@ -438,10 +565,7 @@ fn windows_directives(uses_dll_names: bool) -> Vec<String> {
     directives
 }
 
-/// Turn `;directive` lines into active `directive` lines, ignoring a trailing `; comment`
-/// when matching. PHP 7.0 to 7.2 write `; extension_dir` with a space, so that one directive
-/// also matches that way; other lines must match exactly so prose comments stay comments.
-/// Anything else is left alone.
+/// Activate `;directive` lines; `extension_dir` also matches the spaced spelling of PHP 7.0 to 7.2.
 fn uncomment_directives(content: &str, directives: &[String]) -> String {
     content
         .split_inclusive('\n')
@@ -497,11 +621,7 @@ fn extract_zip(archive_path: &Path, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Static build from static-php-cli (Linux and macOS):
-///   libexec/php   the real static binary
-///   bin/php       wrapper script that points PHP at this version's php.ini
-///   php.ini       configuration
-///   conf.d/       additional ini files
+/// Static build from static-php-cli, laid out with a wrapper script around the binary.
 fn lay_out_static_build(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.tar.gz");
     download::fetch(&build.url, &archive_path, build.sha256.as_deref())?;
@@ -554,8 +674,7 @@ fn extract_php_binary(archive_path: &Path, destination: &Path) -> Result<(), Str
 #[cfg(unix)]
 fn set_executable(path: &Path) -> Result<(), String> {
     use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(path, fs::Permissions::from_mode(0o755))
-        .map_err(|error| error.to_string())
+    fs::set_permissions(path, fs::Permissions::from_mode(0o755)).map_err(|error| error.to_string())
 }
 
 #[cfg(not(unix))]
@@ -563,8 +682,7 @@ fn set_executable(_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// The static binary has its php.ini path compiled in (/usr/local/etc/php),
-/// so a small wrapper script points PHP at this version's own configuration.
+/// The static binary has its php.ini path compiled in, so a wrapper points it at this version.
 fn write_wrapper_script(path: &Path) -> Result<(), String> {
     let script = "\
 #!/bin/sh

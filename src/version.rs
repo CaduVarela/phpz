@@ -52,10 +52,6 @@ fn parse_version(text: &str) -> Option<Version> {
 }
 
 /// Builds for the current platform, one per version, sorted ascending.
-///
-/// Windows uses the official windows.php.net builds. Its cheap list holds the newest release of
-/// each series; `include_history` also reads the large archive page. Other systems use
-/// static-php-cli, whose single index already holds every version.
 fn available_builds(include_history: bool, variant: Variant) -> Result<Vec<Build>, String> {
     let mut builds = if cfg!(windows) {
         windows_php::builds(include_history)?
@@ -67,9 +63,11 @@ fn available_builds(include_history: bool, variant: Variant) -> Result<Vec<Build
     Ok(builds)
 }
 
-/// Versions available for download, as "MAJOR.MINOR.PATCH" strings, sorted ascending.
-/// With `include_history`, Windows also lists the older patches.
-pub fn available_version_names(include_history: bool, variant: Variant) -> Result<Vec<String>, String> {
+/// Versions available for download, sorted ascending.
+pub fn available_version_names(
+    include_history: bool,
+    variant: Variant,
+) -> Result<Vec<String>, String> {
     Ok(available_builds(include_history, variant)?
         .iter()
         .map(Build::version_name)
@@ -81,7 +79,6 @@ pub fn resolve_build(input: &str, variant: Variant) -> Result<Build, String> {
     let requested = parse_request(input)?;
     let no_build = || format!("no PHP build found for version '{}'", input);
 
-    // A series or minor always resolves to its newest release, which the cheap list holds.
     // Only an exact older patch needs the archive page.
     let mut build = match find_build(&available_builds(false, variant)?, &requested) {
         Some(build) => build.clone(),

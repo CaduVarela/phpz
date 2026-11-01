@@ -2,13 +2,13 @@ use std::path::PathBuf;
 
 use clap::Subcommand;
 
-use crate::extensions::{self, Outcome};
 use crate::commands::install;
-use crate::variant::{self, Variant};
-use crate::{extension_install, interaction, pecl, version};
+use crate::extensions::{self, Outcome};
 use crate::ini::IniDocument;
 use crate::project::{Project, PROJECT_FILE};
 use crate::settings::Settings;
+use crate::variant::{self, Variant};
+use crate::{extension_install, interaction, pecl, version};
 use crate::{installed, paths, selection};
 
 #[derive(Subcommand)]
@@ -81,7 +81,11 @@ impl ActiveVersion {
     fn find() -> Result<ActiveVersion, String> {
         let selection = selection::require_here()?;
         let directory = selection.directory()?;
-        Ok(ActiveVersion { name: selection.version, directory, project: selection.project })
+        Ok(ActiveVersion {
+            name: selection.version,
+            directory,
+            project: selection.project,
+        })
     }
 
     fn ini_path(&self) -> PathBuf {
@@ -102,10 +106,18 @@ impl ExtCommands {
             ExtCommands::List => list(),
             ExtCommands::Enable { name, global } => toggle(&name, true, global),
             ExtCommands::Disable { name, global } => toggle(&name, false, global),
-            ExtCommands::Install { name, version, allow_unverified, global } => {
-                install_extension(&name, version.as_deref(), allow_unverified, global)
-            }
-            ExtCommands::Sync { all, project, install, allow_unverified } => {
+            ExtCommands::Install {
+                name,
+                version,
+                allow_unverified,
+                global,
+            } => install_extension(&name, version.as_deref(), allow_unverified, global),
+            ExtCommands::Sync {
+                all,
+                project,
+                install,
+                allow_unverified,
+            } => {
                 if project {
                     sync_project(install, allow_unverified)
                 } else {
@@ -129,8 +141,16 @@ fn list() -> Result<(), String> {
     let listing = extensions::classify(&available, &loaded, &extensions::enabled_in_ini(&ini));
 
     println!("PHP {}", version.name);
-    if let Some(project) = version.project.as_ref().filter(|project| !project.extensions.is_empty()) {
-        println!("project {}: {}", project.directory.display(), describe_choices(&project.extensions));
+    if let Some(project) = version
+        .project
+        .as_ref()
+        .filter(|project| !project.extensions.is_empty())
+    {
+        println!(
+            "project {}: {}",
+            project.directory.display(),
+            describe_choices(&project.extensions)
+        );
     }
     print_group("enabled", &listing.enabled);
     print_group("disabled (can be enabled)", &listing.disabled);
@@ -174,10 +194,16 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
             println!("{} is already {} in PHP {}.", name, state, version.name);
         }
         Outcome::BuiltIn if enable => {
-            println!("{} is built into PHP {} and is always on.", name, version.name)
+            println!(
+                "{} is built into PHP {} and is always on.",
+                name, version.name
+            )
         }
         Outcome::BuiltIn => {
-            return Err(format!("{} is built into PHP {} and cannot be disabled.", name, version.name))
+            return Err(format!(
+                "{} is built into PHP {} and cannot be disabled.",
+                name, version.name
+            ))
         }
         Outcome::Unavailable => {
             if enable && !cfg!(windows) && suggest_larger_build(&version, &name)? {
@@ -186,9 +212,15 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
             let reason = if available.is_empty() {
                 "This build has a fixed set of extensions.".to_string()
             } else {
-                format!("It is not bundled with this PHP. Run 'phpz ext install {}' to download it.", name)
+                format!(
+                    "It is not bundled with this PHP. Run 'phpz ext install {}' to download it.",
+                    name
+                )
             };
-            return Err(format!("{} is not available in PHP {}. {}", name, version.name, reason));
+            return Err(format!(
+                "{} is not available in PHP {}. {}",
+                name, version.name, reason
+            ));
         }
     }
 
@@ -202,13 +234,15 @@ fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
         }
         settings.save()?;
         let state = if enable { "enabled" } else { "disabled" };
-        println!("Saved {} as {} in your global settings. Every version you install or sync gets it.", name, state);
+        println!(
+            "Saved {} as {} in your global settings. Every version you install or sync gets it.",
+            name, state
+        );
     }
     Ok(())
 }
 
-/// On a static build an extension can only come with another build. Say which build has it and
-/// what that build lacks, and switch only if the person agrees. True when the version was switched.
+/// Offer a build that has the extension; true when the version was switched.
 fn suggest_larger_build(version: &ActiveVersion, name: &str) -> Result<bool, String> {
     let current = match variant::read_origin(&version.directory) {
         variant::Origin::Prebuilt(current) => current,
@@ -236,17 +270,34 @@ fn suggest_larger_build(version: &ActiveVersion, name: &str) -> Result<bool, Str
 
     let current_extensions = version::variant_extensions(current).unwrap_or_default();
     let lost = variant::lost_by_switching(&current_extensions, &target_extensions);
-    eprintln!("{} is not in the {} build of PHP {}, but the {} build has it.", name, current.name(), version.name, target.name());
+    eprintln!(
+        "{} is not in the {} build of PHP {}, but the {} build has it.",
+        name,
+        current.name(),
+        version.name,
+        target.name()
+    );
     if !lost.is_empty() {
         eprintln!("That build lacks {}, which this one has.", lost.join(", "));
     }
 
-    let command = format!("phpz install {} --variant {} --replace", version.name, target.name());
+    let command = format!(
+        "phpz install {} --variant {} --replace",
+        version.name,
+        target.name()
+    );
     if !interaction::is_interactive() {
         eprintln!("To switch, run: {}", command);
         return Ok(false);
     }
-    match interaction::confirm(&format!("Switch PHP {} to the {} build now?", version.name, target.name()), false) {
+    match interaction::confirm(
+        &format!(
+            "Switch PHP {} to the {} build now?",
+            version.name,
+            target.name()
+        ),
+        false,
+    ) {
         Some(true) => {
             install::switch_build(&version.name, target)?;
             Ok(true)
@@ -261,7 +312,12 @@ fn suggest_larger_build(version: &ActiveVersion, name: &str) -> Result<bool, Str
 const WINDOWS_ONLY: &str = "installing extensions is only available on Windows for now. \
 Linux and macOS builds are static and cannot load extra extensions.";
 
-fn install_extension(name: &str, requested: Option<&str>, allow_unverified: bool, global: bool) -> Result<(), String> {
+fn install_extension(
+    name: &str,
+    requested: Option<&str>,
+    allow_unverified: bool,
+    global: bool,
+) -> Result<(), String> {
     if !cfg!(windows) {
         return Err(WINDOWS_ONLY.to_string());
     }
@@ -273,13 +329,23 @@ fn install_extension(name: &str, requested: Option<&str>, allow_unverified: bool
 
     // Already part of PHP (shared or built in): nothing to download, just switch it on.
     let available = extensions::available_shared(&version.directory);
-    if available.contains(&name) || extensions::loaded_modules(&version.directory)?.contains(&name) {
+    if available.contains(&name) || extensions::loaded_modules(&version.directory)?.contains(&name)
+    {
         println!("{} already ships with PHP {}.", name, version.name);
         return toggle(&name, true, global);
     }
 
-    let installed = extension_install::install_package(&version.directory, &version.name, &name, requested, allow_unverified)?;
-    println!("Installed {} {} for PHP {}", name, installed.version, version.name);
+    let installed = extension_install::install_package(
+        &version.directory,
+        &version.name,
+        &name,
+        requested,
+        allow_unverified,
+    )?;
+    println!(
+        "Installed {} {} for PHP {}",
+        name, installed.version, version.name
+    );
     if installed.first_use {
         println!("Its checksum was recorded in downloads.lock; phpz will refuse a different file at the same address from now on.");
     }
@@ -298,21 +364,29 @@ fn describe_choices(choices: &crate::settings::ExtensionSettings) -> String {
     parts.join("; ")
 }
 
-/// Make sure the version that applies here has the extensions the project enables. The project's
-/// choices themselves are applied at run time by the php shim, through a generated php.ini.
+/// Make sure the version that applies here has the extensions the project enables.
 fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
     if install && !cfg!(windows) {
         return Err(WINDOWS_ONLY.to_string());
     }
     let version = ActiveVersion::find()?;
-    let Some(project) = version.project.as_ref().filter(|project| !project.extensions.is_empty()) else {
-        println!("No extension choices apply here. Add an [extensions] table to a {} file.", PROJECT_FILE);
+    let Some(project) = version
+        .project
+        .as_ref()
+        .filter(|project| !project.extensions.is_empty())
+    else {
+        println!(
+            "No extension choices apply here. Add an [extensions] table to a {} file.",
+            PROJECT_FILE
+        );
         return Ok(());
     };
 
     let wanted = &project.extensions.enable;
     let available = extensions::available_shared(&version.directory);
-    let missing = extensions::missing_extensions(wanted, &available, || extensions::loaded_modules(&version.directory))?;
+    let missing = extensions::missing_extensions(wanted, &available, || {
+        extensions::loaded_modules(&version.directory)
+    })?;
     if missing.is_empty() {
         println!("PHP {} has everything this project enables.", version.name);
         return Ok(());
@@ -325,7 +399,12 @@ fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
         return Ok(());
     }
 
-    let (downloaded, failed) = download_missing(&version.directory, &version.name, &missing, allow_unverified)?;
+    let (downloaded, failed) = download_missing(
+        &version.directory,
+        &version.name,
+        &missing,
+        allow_unverified,
+    )?;
     if !downloaded.is_empty() {
         println!("downloaded: {}", downloaded.join(", "));
     }
@@ -335,7 +414,10 @@ fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
     if failed.is_empty() {
         Ok(())
     } else {
-        Err(format!("{} extension(s) could not be downloaded", failed.len()))
+        Err(format!(
+            "{} extension(s) could not be downloaded",
+            failed.len()
+        ))
     }
 }
 
@@ -354,7 +436,9 @@ fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> 
     }
     let settings = Settings::load()?;
     if settings.extensions.is_empty() {
-        println!("There are no global extension settings yet. Use 'phpz ext enable <name> --global'.");
+        println!(
+            "There are no global extension settings yet. Use 'phpz ext enable <name> --global'."
+        );
         return Ok(());
     }
 
@@ -373,7 +457,12 @@ fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> 
         let mut lines = Vec::new();
 
         if install {
-            match download_missing(&directory, &name, &settings.extensions.enable, allow_unverified) {
+            match download_missing(
+                &directory,
+                &name,
+                &settings.extensions.enable,
+                allow_unverified,
+            ) {
                 Ok((downloaded, failed)) => {
                     if !downloaded.is_empty() {
                         lines.push(format!("downloaded: {}", downloaded.join(", ")));
@@ -418,8 +507,7 @@ fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> 
     Ok(())
 }
 
-/// Download the wanted extensions this PHP lacks. Returns what was downloaded, and one line for
-/// each extension that could not be, because one bad name must not stop the others.
+/// Download the wanted extensions this PHP lacks; failures are reported per extension.
 fn download_missing(
     directory: &std::path::Path,
     php_version: &str,
@@ -427,12 +515,20 @@ fn download_missing(
     allow_unverified: bool,
 ) -> Result<(Vec<String>, Vec<String>), String> {
     let available = extensions::available_shared(directory);
-    let missing = extensions::missing_extensions(wanted, &available, || extensions::loaded_modules(directory))?;
+    let missing = extensions::missing_extensions(wanted, &available, || {
+        extensions::loaded_modules(directory)
+    })?;
 
     let mut downloaded = Vec::new();
     let mut failed = Vec::new();
     for name in missing {
-        match extension_install::install_package(directory, php_version, &name, None, allow_unverified) {
+        match extension_install::install_package(
+            directory,
+            php_version,
+            &name,
+            None,
+            allow_unverified,
+        ) {
             Ok(installed) => downloaded.push(format!("{} {}", name, installed.version)),
             Err(error) => failed.push(format!("could not download {}: {}", name, error)),
         }

@@ -12,7 +12,10 @@ pub fn run(version: String) {
 
 fn uninstall(version: &str) -> Result<(), String> {
     // Deleting needs an exact match, so "8.3" never removes a version by accident.
-    if !installed::installed_versions()?.iter().any(|name| name == version) {
+    if !installed::installed_versions()?
+        .iter()
+        .any(|name| name == version)
+    {
         return Err(format!(
             "PHP {} is not installed. Use the exact version shown by 'phpz list'.",
             version

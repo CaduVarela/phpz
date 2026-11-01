@@ -29,22 +29,22 @@ impl Selection {
 pub const NOTHING_SELECTED: &str =
     "no PHP version is active. Run 'phpz use <version>', or pin one here with 'phpz local <version>'.";
 
-/// The project's pin if there is one, otherwise the global default. A pin that is not installed is
-/// an error and does not fall back, so the wrong PHP never runs silently.
+/// The project's pin, otherwise the global default; an uninstalled pin is an error.
 fn choose(
     project: Option<&Project>,
     installed_versions: &[String],
     global: Option<String>,
 ) -> Result<Option<(String, Origin)>, String> {
     if let Some(pinned) = project.and_then(|project| project.php.as_ref()) {
-        let version = installed::select_installed(installed_versions, &pinned.request).map_err(|_| {
-            format!(
-                "PHP {} is required by {} but is not installed. Run 'phpz install {}'.",
-                pinned.request,
-                pinned.file.display(),
-                pinned.request
-            )
-        })?;
+        let version =
+            installed::select_installed(installed_versions, &pinned.request).map_err(|_| {
+                format!(
+                    "PHP {} is required by {} but is not installed. Run 'phpz install {}'.",
+                    pinned.request,
+                    pinned.file.display(),
+                    pinned.request
+                )
+            })?;
         return Ok(Some((version, Origin::Project(pinned.file.clone()))));
     }
     Ok(global.map(|version| (version, Origin::Global)))
@@ -56,12 +56,18 @@ pub fn select(start: &Path) -> Result<Option<Selection>, String> {
     let versions = installed::installed_versions()?;
     let global = installed::active_version()?;
 
-    Ok(choose(project.as_ref(), &versions, global)?
-        .map(|(version, origin)| Selection { version, origin, project }))
+    Ok(
+        choose(project.as_ref(), &versions, global)?.map(|(version, origin)| Selection {
+            version,
+            origin,
+            project,
+        }),
+    )
 }
 
 pub fn select_here() -> Result<Option<Selection>, String> {
-    let here = std::env::current_dir().map_err(|error| format!("could not read the current directory: {}", error))?;
+    let here = std::env::current_dir()
+        .map_err(|error| format!("could not read the current directory: {}", error))?;
     select(&here)
 }
 

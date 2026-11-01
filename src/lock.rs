@@ -24,7 +24,8 @@ impl DownloadLock {
     }
 
     pub fn record(&mut self, url: &str, sha256: &str) {
-        self.downloads.insert(url.to_string(), sha256.to_lowercase());
+        self.downloads
+            .insert(url.to_string(), sha256.to_lowercase());
     }
 
     pub fn parse(text: &str) -> Result<DownloadLock, String> {
@@ -42,7 +43,9 @@ impl DownloadLock {
     pub fn load() -> Result<DownloadLock, String> {
         let path = Self::path()?;
         match fs::read_to_string(&path) {
-            Ok(text) => Self::parse(&text).map_err(|error| format!("invalid {}: {}", path.display(), error)),
+            Ok(text) => {
+                Self::parse(&text).map_err(|error| format!("invalid {}: {}", path.display(), error))
+            }
             Err(error) if error.kind() == ErrorKind::NotFound => Ok(DownloadLock::default()),
             Err(error) => Err(format!("reading {}: {}", path.display(), error)),
         }
@@ -51,7 +54,8 @@ impl DownloadLock {
     pub fn save(&self) -> Result<(), String> {
         let path = Self::path()?;
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|error| format!("creating {}: {}", parent.display(), error))?;
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("creating {}: {}", parent.display(), error))?;
         }
         let temporary_path = path.with_extension("lock.tmp");
         fs::write(&temporary_path, self.render())

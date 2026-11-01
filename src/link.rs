@@ -15,8 +15,7 @@ pub fn replace_link(target: &Path, link: &Path) -> Result<(), String> {
     })
 }
 
-/// Point `link` at the directory `target` with a junction, which unlike a symlink needs no
-/// administrator rights. A junction cannot be renamed over, so the old one is removed first.
+/// Point `link` at `target` with a junction, which needs no administrator rights.
 #[cfg(windows)]
 pub fn replace_link(target: &Path, link: &Path) -> Result<(), String> {
     remove_link(link)?;

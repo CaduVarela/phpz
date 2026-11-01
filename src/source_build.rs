@@ -39,7 +39,8 @@ impl SourceRelease {
 
 /// The release described by php.net's JSON: its tar.gz and the SHA-256 it publishes for it.
 pub fn parse_release(json: &str) -> Result<SourceRelease, String> {
-    let release: Value = serde_json::from_str(json).map_err(|error| format!("invalid release data: {}", error))?;
+    let release: Value =
+        serde_json::from_str(json).map_err(|error| format!("invalid release data: {}", error))?;
     let version = release
         .get("version")
         .and_then(Value::as_str)
@@ -49,12 +50,18 @@ pub fn parse_release(json: &str) -> Result<SourceRelease, String> {
         .and_then(Value::as_array)
         .and_then(|files| {
             files.iter().find(|file| {
-                file.get("filename").and_then(Value::as_str).map(|name| name.ends_with(".tar.gz")).unwrap_or(false)
+                file.get("filename")
+                    .and_then(Value::as_str)
+                    .map(|name| name.ends_with(".tar.gz"))
+                    .unwrap_or(false)
             })
         })
         .ok_or("php.net lists no tar.gz source for that release")?;
 
-    let name = archive.get("filename").and_then(Value::as_str).ok_or("invalid release data")?;
+    let name = archive
+        .get("filename")
+        .and_then(Value::as_str)
+        .ok_or("invalid release data")?;
     let sha256 = archive
         .get("sha256")
         .and_then(Value::as_str)
@@ -69,7 +76,10 @@ pub fn parse_release(json: &str) -> Result<SourceRelease, String> {
 /// "8", "8.3" or "8.3.9" to the newest matching release, from php.net.
 pub fn resolve(input: &str) -> Result<SourceRelease, String> {
     if !project::is_valid_request(input) {
-        return Err(format!("invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH", input));
+        return Err(format!(
+            "invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH",
+            input
+        ));
     }
     let response = reqwest::blocking::get(format!("{}{}", RELEASES_URL, input))
         .map_err(|error| format!("failed to reach php.net: {}", error))?;
@@ -118,21 +128,63 @@ const OPCACHE_ALWAYS_BUILT_IN_FROM: (u32, u32) = (8, 5);
 
 /// Compiled in when the libraries are there.
 const BUILT_IN: &[Component] = &[
-    Component { name: "openssl", flags: &["--with-openssl"], packages: &["openssl"], hint: "libssl-dev" },
-    Component { name: "curl", flags: &["--with-curl"], packages: &["libcurl"], hint: "libcurl4-openssl-dev" },
-    Component { name: "zlib", flags: &["--with-zlib"], packages: &["zlib"], hint: "zlib1g-dev" },
-    Component { name: "mbstring", flags: &["--enable-mbstring"], packages: &["oniguruma"], hint: "libonig-dev" },
+    Component {
+        name: "openssl",
+        flags: &["--with-openssl"],
+        packages: &["openssl"],
+        hint: "libssl-dev",
+    },
+    Component {
+        name: "curl",
+        flags: &["--with-curl"],
+        packages: &["libcurl"],
+        hint: "libcurl4-openssl-dev",
+    },
+    Component {
+        name: "zlib",
+        flags: &["--with-zlib"],
+        packages: &["zlib"],
+        hint: "zlib1g-dev",
+    },
+    Component {
+        name: "mbstring",
+        flags: &["--enable-mbstring"],
+        packages: &["oniguruma"],
+        hint: "libonig-dev",
+    },
     Component {
         name: "xml",
-        flags: &["--with-libxml", "--enable-dom", "--enable-simplexml", "--enable-xml", "--enable-xmlreader", "--enable-xmlwriter"],
+        flags: &[
+            "--with-libxml",
+            "--enable-dom",
+            "--enable-simplexml",
+            "--enable-xml",
+            "--enable-xmlreader",
+            "--enable-xmlwriter",
+        ],
         packages: &["libxml-2.0"],
         hint: "libxml2-dev",
     },
-    Component { name: "sqlite", flags: &["--with-pdo-sqlite", "--with-sqlite3"], packages: &["sqlite3"], hint: "libsqlite3-dev" },
-    Component { name: "zip", flags: &["--with-zip"], packages: &["libzip"], hint: "libzip-dev" },
+    Component {
+        name: "sqlite",
+        flags: &["--with-pdo-sqlite", "--with-sqlite3"],
+        packages: &["sqlite3"],
+        hint: "libsqlite3-dev",
+    },
+    Component {
+        name: "zip",
+        flags: &["--with-zip"],
+        packages: &["libzip"],
+        hint: "libzip-dev",
+    },
     Component {
         name: "gd",
-        flags: &["--with-zlib", "--enable-gd", "--with-jpeg", "--with-freetype"],
+        flags: &[
+            "--with-zlib",
+            "--enable-gd",
+            "--with-jpeg",
+            "--with-freetype",
+        ],
         packages: &["zlib", "libpng", "libjpeg", "freetype2"],
         hint: "libpng-dev libjpeg-dev libfreetype-dev",
     },
@@ -140,9 +192,24 @@ const BUILT_IN: &[Component] = &[
 
 /// Built as `.so` files, so `phpz ext enable|disable` can switch them.
 const SHARED: &[Component] = &[
-    Component { name: "intl", flags: &["--enable-intl=shared"], packages: &["icu-i18n"], hint: "libicu-dev" },
-    Component { name: "soap", flags: &["--with-libxml", "--enable-soap=shared"], packages: &["libxml-2.0"], hint: "libxml2-dev" },
-    Component { name: "sodium", flags: &["--with-sodium=shared"], packages: &["libsodium"], hint: "libsodium-dev" },
+    Component {
+        name: "intl",
+        flags: &["--enable-intl=shared"],
+        packages: &["icu-i18n"],
+        hint: "libicu-dev",
+    },
+    Component {
+        name: "soap",
+        flags: &["--with-libxml", "--enable-soap=shared"],
+        packages: &["libxml-2.0"],
+        hint: "libxml2-dev",
+    },
+    Component {
+        name: "sodium",
+        flags: &["--with-sodium=shared"],
+        packages: &["libsodium"],
+        hint: "libsodium-dev",
+    },
 ];
 
 #[derive(Debug, PartialEq)]
@@ -173,7 +240,11 @@ pub fn plan(series: (u32, u32), has_package: impl Fn(&str) -> bool) -> Plan {
     }
 
     let mut consider = |component: &Component, is_shared: bool| {
-        if component.packages.iter().all(|package| has_package(package)) {
+        if component
+            .packages
+            .iter()
+            .all(|package| has_package(package))
+        {
             flags.extend(component.flags.iter().map(|flag| flag.to_string()));
             if is_shared {
                 shared.push(component.name);
@@ -181,7 +252,10 @@ pub fn plan(series: (u32, u32), has_package: impl Fn(&str) -> bool) -> Plan {
                 built_in.push(component.name);
             }
         } else {
-            skipped.push(Skipped { name: component.name, hint: component.hint });
+            skipped.push(Skipped {
+                name: component.name,
+                hint: component.hint,
+            });
         }
     };
     for component in BUILT_IN {
@@ -190,7 +264,12 @@ pub fn plan(series: (u32, u32), has_package: impl Fn(&str) -> bool) -> Plan {
     for component in SHARED {
         consider(component, true);
     }
-    Plan { flags, built_in, shared, skipped }
+    Plan {
+        flags,
+        built_in,
+        shared,
+        skipped,
+    }
 }
 
 /// Whether pkg-config knows a library.
@@ -225,7 +304,9 @@ fn is_executable_file(path: &Path) -> bool {
 }
 
 pub fn tool_exists(name: &str) -> bool {
-    env::var_os("PATH").and_then(|path| find_in_path(name, &path)).is_some()
+    env::var_os("PATH")
+        .and_then(|path| find_in_path(name, &path))
+        .is_some()
 }
 
 /// The tools a build cannot do without that this system lacks, with what to install on Debian and Ubuntu.
@@ -246,12 +327,15 @@ pub fn tail_lines(text: &str, count: usize) -> String {
     lines[lines.len().saturating_sub(count)..].join("\n")
 }
 
-/// What to show of a failed build's log: the first errors, because with parallel jobs the end of
-/// the log is usually warnings printed after the real failure. Without recognizable errors, its end.
+/// The first errors of a failed build log, or its end when none are recognizable.
 pub fn failure_excerpt(log: &str) -> (&'static str, String) {
     let errors: Vec<&str> = log
         .lines()
-        .filter(|line| line.contains(": error:") || line.contains("configure: error") || (line.starts_with("make") && line.contains("***")))
+        .filter(|line| {
+            line.contains(": error:")
+                || line.contains("configure: error")
+                || (line.starts_with("make") && line.contains("***"))
+        })
         .take(6)
         .collect();
     if errors.is_empty() {
@@ -269,7 +353,9 @@ fn run_logged(mut command: Command, step: &str, log_path: &Path) -> Result<(), S
         .open(log_path)
         .map_err(|error| format!("opening {}: {}", log_path.display(), error))?;
     let status = command
-        .stdout(Stdio::from(log.try_clone().map_err(|error| error.to_string())?))
+        .stdout(Stdio::from(
+            log.try_clone().map_err(|error| error.to_string())?,
+        ))
         .stderr(Stdio::from(log))
         .status()
         .map_err(|error| format!("could not start {}: {}", step, error))?;
@@ -279,7 +365,13 @@ fn run_logged(mut command: Command, step: &str, log_path: &Path) -> Result<(), S
     let (what, excerpt) = fs::read_to_string(log_path)
         .map(|text| failure_excerpt(&text))
         .unwrap_or(("The end of", String::new()));
-    Err(format!("{} failed. {} {}:\n{}", step, what, log_path.display(), excerpt))
+    Err(format!(
+        "{} failed. {} {}:\n{}",
+        step,
+        what,
+        log_path.display(),
+        excerpt
+    ))
 }
 
 #[derive(Debug, PartialEq)]
@@ -300,9 +392,12 @@ pub fn signature_verdict(output: &str) -> Verdict {
     }
 }
 
-/// Check the archive against its detached signature with the keyring php.net publishes. Returns
-/// false when gpg is not installed, so the caller can say that only the SHA-256 was checked.
-pub fn verify_signature(release: &SourceRelease, archive: &Path, work_directory: &Path) -> Result<bool, String> {
+/// Check the archive against its detached signature. False when gpg is not installed.
+pub fn verify_signature(
+    release: &SourceRelease,
+    archive: &Path,
+    work_directory: &Path,
+) -> Result<bool, String> {
     if !tool_exists("gpg") {
         return Ok(false);
     }
@@ -312,7 +407,8 @@ pub fn verify_signature(release: &SourceRelease, archive: &Path, work_directory:
             .and_then(|response| response.bytes())
             .map_err(|error| format!("failed to download {}: {}", name, error))?;
         let path = work_directory.join(name);
-        fs::write(&path, bytes).map_err(|error| format!("writing {}: {}", path.display(), error))?;
+        fs::write(&path, bytes)
+            .map_err(|error| format!("writing {}: {}", path.display(), error))?;
         Ok(path)
     };
     let signature = fetch(&release.signature_url(), "signature.asc")?;
@@ -329,14 +425,26 @@ pub fn verify_signature(release: &SourceRelease, archive: &Path, work_directory:
             .args(arguments)
             .output()
             .map_err(|error| format!("could not run gpg: {}", error))?;
-        Ok(format!("{}{}", String::from_utf8_lossy(&output.stdout), String::from_utf8_lossy(&output.stderr)))
+        Ok(format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        ))
     };
     gpg(&["--quiet".as_ref(), "--import".as_ref(), keyring.as_os_str()])?;
-    let verdict = signature_verdict(&gpg(&["--verify".as_ref(), signature.as_os_str(), archive.as_os_str()])?);
+    let verdict = signature_verdict(&gpg(&[
+        "--verify".as_ref(),
+        signature.as_os_str(),
+        archive.as_os_str(),
+    ])?);
     match verdict {
         Verdict::Good => Ok(true),
-        Verdict::Bad => Err("the signature of the PHP source is BAD; nothing was built".to_string()),
-        Verdict::Unknown => Err("the signature of the PHP source could not be verified; nothing was built".to_string()),
+        Verdict::Bad => {
+            Err("the signature of the PHP source is BAD; nothing was built".to_string())
+        }
+        Verdict::Unknown => Err(
+            "the signature of the PHP source could not be verified; nothing was built".to_string(),
+        ),
     }
 }
 
@@ -364,9 +472,7 @@ pub fn unpack(archive: &Path, destination: &Path) -> Result<PathBuf, String> {
         .ok_or_else(|| "the source archive does not contain a configure script".to_string())
 }
 
-/// Configure, compile and install into a staging root, with the final directory as the prefix so
-/// that the paths built into php (the extension directory, php-config) are the final ones.
-/// Returns where the installed tree is inside the staging root.
+/// Configure, compile and install into a staging root; returns the installed tree inside it.
 pub fn compile(
     source: &Path,
     final_directory: &Path,
@@ -387,7 +493,10 @@ pub fn compile(
     run_logged(make, "compiling", log_path)?;
 
     let mut install = Command::new("make");
-    install.current_dir(source).arg("install").arg(format!("INSTALL_ROOT={}", staging_root.display()));
+    install
+        .current_dir(source)
+        .arg("install")
+        .arg(format!("INSTALL_ROOT={}", staging_root.display()));
     run_logged(install, "installing", log_path)?;
 
     // INSTALL_ROOT puts the tree at <root><prefix>, with the prefix's leading slash dropped.

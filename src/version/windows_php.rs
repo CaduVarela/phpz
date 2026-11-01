@@ -8,13 +8,10 @@ const RELEASES_URL: &str = "https://windows.php.net/downloads/releases/releases.
 const DOWNLOAD_BASE_URL: &str = "https://windows.php.net/downloads/releases";
 const ARCHIVES_URL: &str = "https://windows.php.net/downloads/releases/archives/";
 
-/// 7.0 is the oldest series that runs with the current Visual C++ redistributable (VC14).
-/// 5.x needs VC11, which a modern machine usually lacks.
+/// The oldest series that runs with the current Visual C++ redistributable.
 const OLDEST_SUPPORTED: Version = (7, 0, 0);
 
-/// Official builds (non thread safe, x64). The newest release of each series comes from
-/// `releases.json` with its SHA-256; with `include_history` the older patches found in the
-/// archives are added, and a release listed in both places keeps the `releases.json` entry.
+/// Official NTS x64 builds; `include_history` adds the older patches from the archives.
 pub fn builds(include_history: bool) -> Result<Vec<Build>, String> {
     if std::env::consts::ARCH != "x86_64" {
         return Err(format!(
@@ -84,8 +81,7 @@ fn parse_series(series: &Value) -> Option<Build> {
     })
 }
 
-/// Version and packaging revision of a file name such as `php-8.5.12-1-nts-Win32-vs17-x64.zip`.
-/// Anything that is not a non-thread-safe x64 PHP zip (packs, thread-safe, x86, SBOMs) is None.
+/// Version and packaging revision of an NTS x64 zip name; None for anything else.
 fn parse_archive_name(name: &str) -> Option<(Version, u32)> {
     let middle = name.strip_prefix("php-")?.strip_suffix("-x64.zip")?;
     let (release, _toolchain) = middle.split_once("-nts-Win32-")?;
@@ -96,8 +92,7 @@ fn parse_archive_name(name: &str) -> Option<(Version, u32)> {
     Some((parse_version(version_text)?, revision))
 }
 
-/// Every supported build in the archive page, keeping the newest rebuild of each version.
-/// Archive builds carry no checksum, but newer ones have an SBOM that does.
+/// Every supported build in the archive page, newest rebuild of each version.
 fn parse_archive_listing(html: &str) -> Vec<Build> {
     let mut newest_rebuild: BTreeMap<Version, (u32, &str)> = BTreeMap::new();
 
@@ -138,8 +133,7 @@ fn parse_archive_listing(html: &str) -> Vec<Build> {
         .collect()
 }
 
-/// The SHA-256 of the zip, from its CycloneDX SBOM. Ok(None) when no SBOM is published.
-/// Other failures are errors on purpose: a flaky connection must not silently skip verification.
+/// The SHA-256 of the zip from its SBOM; Ok(None) when no SBOM is published.
 pub fn fetch_checksum(sbom_url: &str) -> Result<Option<String>, String> {
     let response = reqwest::blocking::get(sbom_url)
         .map_err(|error| format!("failed to fetch the checksum: {}", error))?;

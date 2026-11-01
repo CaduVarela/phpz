@@ -1,5 +1,4 @@
-/// Variables that make PHP read configuration from outside the active version's directory,
-/// with what each one does.
+/// Variables that make PHP read configuration from outside the version's directory.
 const INI_VARIABLES: &[(&str, &str)] = &[
     (
         "PHP_INI_SCAN_DIR",
@@ -23,7 +22,11 @@ fn find_overrides(lookup: impl Fn(&str) -> Option<String>) -> Vec<IniOverride> {
         .iter()
         .filter_map(|&(name, effect)| {
             let value = lookup(name).filter(|value| !value.is_empty())?;
-            Some(IniOverride { name, value, effect })
+            Some(IniOverride {
+                name,
+                value,
+                effect,
+            })
         })
         .collect()
 }
@@ -41,8 +44,7 @@ fn describe(found: &IniOverride) -> String {
     )
 }
 
-/// Warn about variables that break the isolation between versions.
-/// Only Windows needs this: on Unix the `bin/php` wrapper sets both variables itself.
+/// Warn about variables that break the isolation between versions (Windows only).
 pub fn warn_about_ini_overrides() {
     if !cfg!(windows) {
         return;

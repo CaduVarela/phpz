@@ -35,7 +35,15 @@ fn php_modules() -> Result<BTreeSet<String>, String> {
 
 #[test]
 fn every_spelling_of_an_extension_gives_the_same_name() {
-    for value in ["curl", "php_curl.dll", "PHP_CURL.DLL", "curl.so", "\"php_curl.dll\"", r"C:\php\ext\php_curl.dll", "/usr/lib/php/curl.so"] {
+    for value in [
+        "curl",
+        "php_curl.dll",
+        "PHP_CURL.DLL",
+        "curl.so",
+        "\"php_curl.dll\"",
+        r"C:\php\ext\php_curl.dll",
+        "/usr/lib/php/curl.so",
+    ] {
         assert_eq!(extension_name(value), "curl", "{}", value);
     }
     assert_eq!(extension_name("php_oci8_19.dll"), "oci8_19");
@@ -53,21 +61,31 @@ curl
 [Zend Modules]
 Zend OPcache
 ";
-    assert_eq!(parse_modules(output), set(&["core", "ctype", "curl", "opcache"]));
+    assert_eq!(
+        parse_modules(output),
+        set(&["core", "ctype", "curl", "opcache"])
+    );
 }
 
 #[test]
 fn enabling_uncomments_the_template_line_in_place() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(enable(&mut ini, "bz2", &available(), never_runs).unwrap(), Outcome::Changed);
-    assert!(ini.render().contains("extension_dir = \"ext\"\nextension=bz2\nextension=curl\n"));
+    assert_eq!(
+        enable(&mut ini, "bz2", &available(), never_runs).unwrap(),
+        Outcome::Changed
+    );
+    assert!(ini
+        .render()
+        .contains("extension_dir = \"ext\"\nextension=bz2\nextension=curl\n"));
 }
 
 #[test]
 fn enabling_keeps_the_comment_after_the_line() {
     let mut ini = IniDocument::parse(INI);
     enable(&mut ini, "exif", &available(), never_runs).unwrap();
-    assert!(ini.render().contains("\nextension=exif      ; Must be after mbstring as it depends on it\n"));
+    assert!(ini
+        .render()
+        .contains("\nextension=exif      ; Must be after mbstring as it depends on it\n"));
 }
 
 #[test]
@@ -80,14 +98,20 @@ fn zend_extensions_use_their_own_key() {
 #[test]
 fn enabling_an_enabled_extension_changes_nothing() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(enable(&mut ini, "curl", &available(), never_runs).unwrap(), Outcome::Unchanged);
+    assert_eq!(
+        enable(&mut ini, "curl", &available(), never_runs).unwrap(),
+        Outcome::Unchanged
+    );
     assert_eq!(ini.render(), INI);
 }
 
 #[test]
 fn an_extension_without_a_template_line_is_added_next_to_the_others() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(enable(&mut ini, "gmp", &available(), never_runs).unwrap(), Outcome::Changed);
+    assert_eq!(
+        enable(&mut ini, "gmp", &available(), never_runs).unwrap(),
+        Outcome::Changed
+    );
     assert!(ini.render().contains(";extension=ldap\nextension=gmp\n"));
 }
 
@@ -101,24 +125,41 @@ fn old_series_get_dll_names() {
 #[test]
 fn any_spelling_can_be_used_to_enable() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(enable(&mut ini, "php_ldap.dll", &available(), never_runs).unwrap(), Outcome::Changed);
-    assert!(ini.values(PHP_SECTION, "extension").contains(&"ldap".to_string()));
+    assert_eq!(
+        enable(&mut ini, "php_ldap.dll", &available(), never_runs).unwrap(),
+        Outcome::Changed
+    );
+    assert!(ini
+        .values(PHP_SECTION, "extension")
+        .contains(&"ldap".to_string()));
 }
 
 #[test]
 fn built_in_and_missing_extensions_are_told_apart() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(enable(&mut ini, "ctype", &available(), php_modules).unwrap(), Outcome::BuiltIn);
-    assert_eq!(enable(&mut ini, "xdebug", &available(), php_modules).unwrap(), Outcome::Unavailable);
+    assert_eq!(
+        enable(&mut ini, "ctype", &available(), php_modules).unwrap(),
+        Outcome::BuiltIn
+    );
+    assert_eq!(
+        enable(&mut ini, "xdebug", &available(), php_modules).unwrap(),
+        Outcome::Unavailable
+    );
     assert_eq!(ini.render(), INI);
 }
 
 #[test]
 fn disabling_comments_the_line_out_and_is_repeatable() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(disable(&mut ini, "curl", &available(), never_runs).unwrap(), Outcome::Changed);
+    assert_eq!(
+        disable(&mut ini, "curl", &available(), never_runs).unwrap(),
+        Outcome::Changed
+    );
     assert!(ini.render().contains(";extension=curl\n"));
-    assert_eq!(disable(&mut ini, "curl", &available(), never_runs).unwrap(), Outcome::Unchanged);
+    assert_eq!(
+        disable(&mut ini, "curl", &available(), never_runs).unwrap(),
+        Outcome::Unchanged
+    );
 }
 
 #[test]
@@ -132,8 +173,14 @@ fn enable_then_disable_restores_the_file() {
 #[test]
 fn built_in_extensions_cannot_be_disabled() {
     let mut ini = IniDocument::parse(INI);
-    assert_eq!(disable(&mut ini, "ctype", &available(), php_modules).unwrap(), Outcome::BuiltIn);
-    assert_eq!(disable(&mut ini, "xdebug", &available(), php_modules).unwrap(), Outcome::Unavailable);
+    assert_eq!(
+        disable(&mut ini, "ctype", &available(), php_modules).unwrap(),
+        Outcome::BuiltIn
+    );
+    assert_eq!(
+        disable(&mut ini, "xdebug", &available(), php_modules).unwrap(),
+        Outcome::Unavailable
+    );
 }
 
 #[test]
@@ -175,7 +222,13 @@ fn settings(enable: &[&str], disable: &[&str]) -> ExtensionSettings {
 #[test]
 fn settings_switch_extensions_on_and_off() {
     let mut ini = IniDocument::parse(INI);
-    let report = apply_settings(&mut ini, &settings(&["bz2", "gmp"], &["curl"]), &available(), never_runs).unwrap();
+    let report = apply_settings(
+        &mut ini,
+        &settings(&["bz2", "gmp"], &["curl"]),
+        &available(),
+        never_runs,
+    )
+    .unwrap();
 
     assert_eq!(report.enabled, names(&["bz2", "gmp"]));
     assert_eq!(report.disabled, names(&["curl"]));
@@ -198,9 +251,21 @@ fn applying_the_same_settings_twice_changes_nothing_the_second_time() {
 #[test]
 fn an_extension_this_php_lacks_is_skipped_not_an_error() {
     let mut ini = IniDocument::parse(INI);
-    let report = apply_settings(&mut ini, &settings(&["swoole"], &["swoole"]), &available(), php_modules).unwrap();
+    let report = apply_settings(
+        &mut ini,
+        &settings(&["swoole"], &["swoole"]),
+        &available(),
+        php_modules,
+    )
+    .unwrap();
 
-    assert_eq!(report.skipped, [("swoole".to_string(), "not available in this PHP".to_string())]);
+    assert_eq!(
+        report.skipped,
+        [(
+            "swoole".to_string(),
+            "not available in this PHP".to_string()
+        )]
+    );
     assert!(!report.changed());
     assert_eq!(ini.render(), INI);
 }
@@ -208,7 +273,13 @@ fn an_extension_this_php_lacks_is_skipped_not_an_error() {
 #[test]
 fn a_built_in_extension_that_cannot_be_disabled_is_reported_and_enabling_it_is_silent() {
     let mut ini = IniDocument::parse(INI);
-    let report = apply_settings(&mut ini, &settings(&["ctype"], &["date"]), &available(), php_modules).unwrap();
+    let report = apply_settings(
+        &mut ini,
+        &settings(&["ctype"], &["date"]),
+        &available(),
+        php_modules,
+    )
+    .unwrap();
 
     assert_eq!(report.skipped.len(), 1);
     assert_eq!(report.skipped[0].0, "date");
@@ -223,7 +294,13 @@ fn php_is_asked_for_its_modules_only_once() {
         calls += 1;
         php_modules()
     };
-    apply_settings(&mut ini, &settings(&["ctype", "date", "xdebug"], &["core", "swoole"]), &available(), counting).unwrap();
+    apply_settings(
+        &mut ini,
+        &settings(&["ctype", "date", "xdebug"], &["core", "swoole"]),
+        &available(),
+        counting,
+    )
+    .unwrap();
     assert!(calls >= 1);
 }
 
@@ -232,11 +309,18 @@ fn the_report_describes_what_happened_in_plain_lines() {
     let report = SyncReport {
         enabled: names(&["intl", "opcache"]),
         disabled: names(&["gd"]),
-        skipped: vec![("swoole".to_string(), "not available in this PHP".to_string())],
+        skipped: vec![(
+            "swoole".to_string(),
+            "not available in this PHP".to_string(),
+        )],
     };
     assert_eq!(
         report.describe(),
-        ["enabled: intl, opcache", "disabled: gd", "skipped swoole: not available in this PHP"]
+        [
+            "enabled: intl, opcache",
+            "disabled: gd",
+            "skipped swoole: not available in this PHP"
+        ]
     );
     assert!(SyncReport::default().describe().is_empty());
 }
@@ -250,7 +334,10 @@ fn gd2_is_the_same_extension_as_gd() {
 
 #[test]
 fn gd_is_enabled_through_the_gd2_line_of_old_templates() {
-    for template in ["[PHP]\n;extension=gd2\n", "[PHP]\n;extension=php_gd2.dll\nextension=php_curl.dll\n"] {
+    for template in [
+        "[PHP]\n;extension=gd2\n",
+        "[PHP]\n;extension=php_gd2.dll\nextension=php_curl.dll\n",
+    ] {
         let mut ini = IniDocument::parse(template);
         let outcome = enable(&mut ini, "gd", &set(&["gd", "curl"]), never_runs).unwrap();
         assert_eq!(outcome, Outcome::Changed, "{}", template);
@@ -280,8 +367,12 @@ fn missing_extensions_are_the_wanted_ones_neither_shared_nor_built_in() {
 #[test]
 fn php_is_not_asked_when_everything_wanted_is_shared() {
     let wanted = names(&["curl", "bz2"]);
-    assert!(missing_extensions(&wanted, &available(), never_runs).unwrap().is_empty());
-    assert!(missing_extensions(&[], &available(), never_runs).unwrap().is_empty());
+    assert!(missing_extensions(&wanted, &available(), never_runs)
+        .unwrap()
+        .is_empty());
+    assert!(missing_extensions(&[], &available(), never_runs)
+        .unwrap()
+        .is_empty());
 }
 
 #[test]
@@ -289,17 +380,24 @@ fn only_the_not_available_skips_suggest_a_download() {
     let mut report = SyncReport::default();
     assert!(!report.has_unavailable());
 
-    report.skipped.push(("date".to_string(), "built into this PHP, cannot be disabled".to_string()));
+    report.skipped.push((
+        "date".to_string(),
+        "built into this PHP, cannot be disabled".to_string(),
+    ));
     assert!(!report.has_unavailable());
 
-    report.skipped.push(("xdebug".to_string(), NOT_AVAILABLE.to_string()));
+    report
+        .skipped
+        .push(("xdebug".to_string(), NOT_AVAILABLE.to_string()));
     assert!(report.has_unavailable());
 }
 
 #[test]
 fn the_so_files_of_a_build_made_here_are_the_shared_extensions() {
     let version = tempfile::tempdir().unwrap();
-    let api = version.path().join("lib/php/extensions/no-debug-non-zts-20230831");
+    let api = version
+        .path()
+        .join("lib/php/extensions/no-debug-non-zts-20230831");
     fs::create_dir_all(&api).unwrap();
     for file in ["intl.so", "opcache.so", "readme.txt", "opcache.a"] {
         fs::write(api.join(file), "").unwrap();

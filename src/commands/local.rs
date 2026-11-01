@@ -2,8 +2,8 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use crate::project::{self, PROJECT_FILE, VERSION_FILE};
 use crate::installed;
+use crate::project::{self, PROJECT_FILE, VERSION_FILE};
 
 /// Pin the PHP version of the current directory, or show it
 pub fn run(version: Option<String>, unset: bool) {
@@ -14,7 +14,8 @@ pub fn run(version: Option<String>, unset: bool) {
 }
 
 fn execute(version: Option<String>, unset: bool) -> Result<(), String> {
-    let here = std::env::current_dir().map_err(|error| format!("could not read the current directory: {}", error))?;
+    let here = std::env::current_dir()
+        .map_err(|error| format!("could not read the current directory: {}", error))?;
     match (version, unset) {
         (Some(version), false) => pin(&here, &version),
         (None, true) => unpin(&here),
@@ -25,18 +26,33 @@ fn execute(version: Option<String>, unset: bool) -> Result<(), String> {
 
 fn pin(directory: &Path, requested: &str) -> Result<(), String> {
     let version = project::normalize_request(requested).ok_or_else(|| {
-        format!("invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH", requested)
+        format!(
+            "invalid version '{}'. Expected MAJOR, MAJOR.MINOR or MAJOR.MINOR.PATCH",
+            requested
+        )
     })?;
     if project::project_file_pins_php(directory)? {
-        return Err(format!("{} already sets 'php' here; edit that file instead.", PROJECT_FILE));
+        return Err(format!(
+            "{} already sets 'php' here; edit that file instead.",
+            PROJECT_FILE
+        ));
     }
 
     let path = directory.join(VERSION_FILE);
-    fs::write(&path, format!("{}\n", version)).map_err(|error| format!("writing {}: {}", path.display(), error))?;
-    println!("PHP {} will be used in {} (written to {})", version, directory.display(), VERSION_FILE);
+    fs::write(&path, format!("{}\n", version))
+        .map_err(|error| format!("writing {}: {}", path.display(), error))?;
+    println!(
+        "PHP {} will be used in {} (written to {})",
+        version,
+        directory.display(),
+        VERSION_FILE
+    );
 
     if installed::select_installed(&installed::installed_versions()?, &version).is_err() {
-        println!("Note: PHP {} is not installed yet. Run 'phpz install {}'.", version, version);
+        println!(
+            "Note: PHP {} is not installed yet. Run 'phpz install {}'.",
+            version, version
+        );
     }
     Ok(())
 }
@@ -45,7 +61,9 @@ fn unpin(directory: &Path) -> Result<(), String> {
     let path = directory.join(VERSION_FILE);
     match fs::remove_file(&path) {
         Ok(()) => println!("Removed {}", path.display()),
-        Err(error) if error.kind() == ErrorKind::NotFound => println!("There is no {} in this directory.", VERSION_FILE),
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            println!("There is no {} in this directory.", VERSION_FILE)
+        }
         Err(error) => return Err(format!("removing {}: {}", path.display(), error)),
     }
     Ok(())

@@ -9,8 +9,7 @@ use crate::ini::{IniDocument, PHP_SECTION};
 use crate::paths;
 use crate::settings::ExtensionSettings;
 
-/// The directory PHP should read php.ini from in a project: the version's own, or a generated
-/// copy of its php.ini with the project's extension choices applied.
+/// The directory PHP should read php.ini from: the version's own or a generated one.
 pub fn ini_directory(
     version_directory: &Path,
     version: &str,
@@ -18,7 +17,13 @@ pub fn ini_directory(
     wanted: &ExtensionSettings,
 ) -> Result<PathBuf, String> {
     let projects_directory = paths::phpz_home()?.join("projects");
-    prepare(version_directory, version, project_directory, wanted, &projects_directory)
+    prepare(
+        version_directory,
+        version,
+        project_directory,
+        wanted,
+        &projects_directory,
+    )
 }
 
 fn prepare(
@@ -36,8 +41,7 @@ fn prepare(
         return unchanged();
     };
 
-    // `php -m` is too slow for something that runs on every php call, so built-in extensions are
-    // not looked up: whatever the version does not ship as a shared extension is simply skipped.
+    // Built-in extensions are not looked up, since `php -m` is too slow here.
     let available = extensions::available_shared(version_directory);
     let report = extensions::apply_settings(&mut ini, wanted, &available, || Ok(BTreeSet::new()))?;
     if !report.changed() {
@@ -48,11 +52,15 @@ fn prepare(
     let directory = projects_directory.join(key(project_directory, version));
     let target = directory.join("php.ini");
     let content = ini.render();
-    if fs::read_to_string(&target).map(|existing| existing == content).unwrap_or(false) {
+    if fs::read_to_string(&target)
+        .map(|existing| existing == content)
+        .unwrap_or(false)
+    {
         return Ok(directory);
     }
 
-    fs::create_dir_all(&directory).map_err(|error| format!("creating {}: {}", directory.display(), error))?;
+    fs::create_dir_all(&directory)
+        .map_err(|error| format!("creating {}: {}", directory.display(), error))?;
     let temporary = directory.join("php.ini.tmp");
     fs::write(&temporary, content)
         .and_then(|_| fs::rename(&temporary, &target))
@@ -60,8 +68,7 @@ fn prepare(
     Ok(directory)
 }
 
-/// A php.ini that lives elsewhere cannot keep `extension_dir = "ext"`, which is relative to the
-/// version, so it is pinned to the version's own directory.
+/// Pin `extension_dir` to the version's directory, as a relative one would break.
 fn make_extension_dir_absolute(ini: &mut IniDocument, version_directory: &Path) {
     let Some(value) = ini.get(PHP_SECTION, "extension_dir") else {
         return;
@@ -69,7 +76,11 @@ fn make_extension_dir_absolute(ini: &mut IniDocument, version_directory: &Path) 
     let path = Path::new(&value);
     if path.is_relative() {
         let absolute = version_directory.join(path);
-        ini.set(PHP_SECTION, "extension_dir", &format!("\"{}\"", absolute.display()));
+        ini.set(
+            PHP_SECTION,
+            "extension_dir",
+            &format!("\"{}\"", absolute.display()),
+        );
     }
 }
 

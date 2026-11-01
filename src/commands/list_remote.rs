@@ -13,7 +13,10 @@ pub fn run(all: bool, variant: Option<Variant>) {
 
 fn list_remote(all: bool, variant: Option<Variant>) -> Result<(), String> {
     if cfg!(windows) && variant.is_some() {
-        return Err("--variant is for Linux and macOS. Windows has one official build per version.".to_string());
+        return Err(
+            "--variant is for Linux and macOS. Windows has one official build per version."
+                .to_string(),
+        );
     }
     let available = version::available_version_names(all, variant.unwrap_or(variant::DEFAULT))?;
     let installed_versions = installed::installed_versions()?;

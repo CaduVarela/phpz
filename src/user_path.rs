@@ -10,7 +10,8 @@ fn same_entry(left: &str, right: &str) -> bool {
 }
 
 fn contains_entry(path: &str, entry: &str) -> bool {
-    path.split(SEPARATOR).any(|existing| same_entry(existing, entry))
+    path.split(SEPARATOR)
+        .any(|existing| same_entry(existing, entry))
 }
 
 /// `path` with `entry` placed first, or None when it is already there.
@@ -96,7 +97,9 @@ mod registry {
             .iter()
             .map(|pair| u16::from_le_bytes(*pair))
             .collect();
-        String::from_utf16_lossy(&units).trim_end_matches('\0').to_string()
+        String::from_utf16_lossy(&units)
+            .trim_end_matches('\0')
+            .to_string()
     }
 
     fn encode(text: &str) -> Vec<u8> {

@@ -70,7 +70,11 @@ fn err(output: &Output) -> String {
 fn without_a_project_the_default_version_runs() {
     let world = world();
     let output = php(&world, world.work.path(), &["-v"]);
-    assert!(out(&output).starts_with("php 8.4.27 args=[-v]"), "{}", out(&output));
+    assert!(
+        out(&output).starts_with("php 8.4.27 args=[-v]"),
+        "{}",
+        out(&output)
+    );
 }
 
 #[test]
@@ -81,7 +85,9 @@ fn a_project_pin_decides_which_version_runs() {
     fs::create_dir_all(&nested).unwrap();
     fs::write(project.join(".php-version"), "8.2\n").unwrap();
 
-    assert!(out(&php(&world, &nested, &["-r", "echo 1;"])).starts_with("php 8.2.35 args=[-r echo 1;]"));
+    assert!(
+        out(&php(&world, &nested, &["-r", "echo 1;"])).starts_with("php 8.2.35 args=[-r echo 1;]")
+    );
     assert!(out(&php(&world, world.work.path(), &[])).starts_with("php 8.4.27"));
 }
 
@@ -100,8 +106,16 @@ fn the_version_reads_its_own_ini_whatever_the_environment_says() {
 
     let home = world.home.path().display();
     let line = out(&output);
-    assert!(line.contains(&format!("PHPRC={}/versions/8.3.32 ", home)), "{}", line);
-    assert!(line.contains(&format!("SCAN={}/versions/8.3.32/conf.d", home)), "{}", line);
+    assert!(
+        line.contains(&format!("PHPRC={}/versions/8.3.32 ", home)),
+        "{}",
+        line
+    );
+    assert!(
+        line.contains(&format!("SCAN={}/versions/8.3.32/conf.d", home)),
+        "{}",
+        line
+    );
 }
 
 #[test]
@@ -116,7 +130,11 @@ fn arguments_with_spaces_and_the_exit_code_pass_through() {
         .unwrap();
 
     assert_eq!(output.status.code(), Some(7));
-    assert!(out(&output).contains("args=[-r echo 'a b'; last]"), "{}", out(&output));
+    assert!(
+        out(&output).contains("args=[-r echo 'a b'; last]"),
+        "{}",
+        out(&output)
+    );
 }
 
 #[test]
@@ -126,7 +144,11 @@ fn a_pin_that_is_not_installed_stops_with_a_clear_message() {
 
     let output = php(&world, world.work.path(), &["-v"]);
     assert_eq!(output.status.code(), Some(1));
-    assert!(err(&output).contains("phpz install 7.4"), "{}", err(&output));
+    assert!(
+        err(&output).contains("phpz install 7.4"),
+        "{}",
+        err(&output)
+    );
     assert!(out(&output).is_empty(), "no php may run: {}", out(&output));
 }
 
@@ -137,7 +159,11 @@ fn nothing_selected_stops_with_a_clear_message() {
 
     let output = php(&world, world.work.path(), &[]);
     assert_eq!(output.status.code(), Some(1));
-    assert!(err(&output).contains("no PHP version is active"), "{}", err(&output));
+    assert!(
+        err(&output).contains("no PHP version is active"),
+        "{}",
+        err(&output)
+    );
 }
 
 #[test]
@@ -160,7 +186,10 @@ fn setup_style_refresh_points_the_link_at_this_binary() {
         .unwrap();
     assert!(output.status.success());
     let link = home.path().join("shims/php");
-    assert_eq!(fs::read_link(&link).unwrap(), PathBuf::from(env!("CARGO_BIN_EXE_phpz")));
+    assert_eq!(
+        fs::read_link(&link).unwrap(),
+        PathBuf::from(env!("CARGO_BIN_EXE_phpz"))
+    );
 }
 
 /// Give 8.3.32 an ext folder with intl and curl DLLs, a php.ini, and a php that prints the
@@ -171,7 +200,11 @@ fn prepare_extension_version(home: &Path) {
     for name in ["intl", "curl"] {
         fs::write(version.join("ext").join(format!("php_{}.dll", name)), "").unwrap();
     }
-    fs::write(version.join("php.ini"), "[PHP]\nextension_dir = \"ext\"\n;extension=intl\nextension=curl\n").unwrap();
+    fs::write(
+        version.join("php.ini"),
+        "[PHP]\nextension_dir = \"ext\"\n;extension=intl\nextension=curl\n",
+    )
+    .unwrap();
 
     let script = "#!/bin/sh\necho \"PHPRC=$PHPRC\"\ngrep -h '^extension' \"$PHPRC/php.ini\"\n";
     for relative in ["libexec/php", "bin/php"] {
@@ -193,12 +226,20 @@ fn a_projects_extension_choices_reach_php_through_a_generated_ini() {
     .unwrap();
 
     let lines = out(&php(&world, world.work.path(), &[]));
-    assert!(lines.contains("/projects/"), "php must read a generated ini: {}", lines);
+    assert!(
+        lines.contains("/projects/"),
+        "php must read a generated ini: {}",
+        lines
+    );
     assert!(lines.contains("extension=intl"), "{}", lines);
     assert!(!lines.contains("extension=curl"), "{}", lines);
 
-    let version_ini = fs::read_to_string(world.home.path().join("versions/8.3.32/php.ini")).unwrap();
-    assert!(version_ini.contains("\nextension=curl\n") && version_ini.contains(";extension=intl"), "the version's own php.ini must stay as it was");
+    let version_ini =
+        fs::read_to_string(world.home.path().join("versions/8.3.32/php.ini")).unwrap();
+    assert!(
+        version_ini.contains("\nextension=curl\n") && version_ini.contains(";extension=intl"),
+        "the version's own php.ini must stay as it was"
+    );
 }
 
 #[test]
@@ -208,7 +249,11 @@ fn a_project_that_only_pins_a_version_keeps_the_versions_own_ini() {
     fs::write(world.work.path().join(".php-version"), "8.3\n").unwrap();
 
     let lines = out(&php(&world, world.work.path(), &[]));
-    assert!(lines.contains("PHPRC=") && lines.contains("/versions/8.3.32"), "{}", lines);
+    assert!(
+        lines.contains("PHPRC=") && lines.contains("/versions/8.3.32"),
+        "{}",
+        lines
+    );
     assert!(!lines.contains("/projects/"), "{}", lines);
 }
 
@@ -216,7 +261,11 @@ fn a_project_that_only_pins_a_version_keeps_the_versions_own_ini() {
 fn another_folder_does_not_see_the_projects_choices() {
     let world = world();
     prepare_extension_version(world.home.path());
-    fs::write(world.work.path().join(".phpz.toml"), "php = \"8.3\"\n[extensions]\nenable = [\"intl\"]\n").unwrap();
+    fs::write(
+        world.work.path().join(".phpz.toml"),
+        "php = \"8.3\"\n[extensions]\nenable = [\"intl\"]\n",
+    )
+    .unwrap();
     let elsewhere = tempfile::tempdir().unwrap();
     fs::write(elsewhere.path().join(".php-version"), "8.3\n").unwrap();
 
@@ -249,7 +298,11 @@ fn sync_project_reports_what_the_version_lacks() {
 
     let install = run(&["ext", "sync", "--project", "--install"]);
     assert!(!install.status.success());
-    assert!(err(&install).contains("only available on Windows"), "{}", err(&install));
+    assert!(
+        err(&install).contains("only available on Windows"),
+        "{}",
+        err(&install)
+    );
 
     let list = out(&run(&["ext", "list"]));
     assert!(list.contains("enables intl, redis"), "{}", list);
@@ -266,5 +319,9 @@ fn sync_project_without_extension_choices_says_so() {
         .output()
         .unwrap();
     assert!(output.status.success());
-    assert!(out(&output).contains("No extension choices apply here"), "{}", out(&output));
+    assert!(
+        out(&output).contains("No extension choices apply here"),
+        "{}",
+        out(&output)
+    );
 }

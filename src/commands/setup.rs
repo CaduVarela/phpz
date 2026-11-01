@@ -17,7 +17,10 @@ fn setup(undo: bool) -> Result<(), String> {
 
     if undo {
         if target.unconfigure()? {
-            println!("Removed phpz from {}. Open a new terminal to apply it.", description);
+            println!(
+                "Removed phpz from {}. Open a new terminal to apply it.",
+                description
+            );
         } else {
             println!("phpz is not set up in {}.", description);
         }

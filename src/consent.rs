@@ -9,9 +9,12 @@ enum Consent {
     Refused,
 }
 
-/// Only a download that should have had a checksum needs consent. Scripts cannot answer a
-/// question, so they must opt in with `--allow-unverified`.
-fn consent_for(missing_checksum_is_unusual: bool, allow_unverified: bool, interactive: bool) -> Consent {
+/// Whether a download without a published checksum needs consent.
+fn consent_for(
+    missing_checksum_is_unusual: bool,
+    allow_unverified: bool,
+    interactive: bool,
+) -> Consent {
     if !missing_checksum_is_unusual {
         Consent::NotNeeded
     } else if allow_unverified {
@@ -23,10 +26,17 @@ fn consent_for(missing_checksum_is_unusual: bool, allow_unverified: bool, intera
     }
 }
 
-/// Get consent to install `subject` ("PHP 7.3.33", "xdebug 3.5.3") without a published checksum.
-/// Ok when none is needed, it was given with the flag, or the person at the terminal agreed.
-pub fn require(missing_checksum_is_unusual: bool, subject: &str, allow_unverified: bool) -> Result<(), String> {
-    match consent_for(missing_checksum_is_unusual, allow_unverified, interaction::is_interactive()) {
+/// Get consent to install `subject` without a published checksum.
+pub fn require(
+    missing_checksum_is_unusual: bool,
+    subject: &str,
+    allow_unverified: bool,
+) -> Result<(), String> {
+    match consent_for(
+        missing_checksum_is_unusual,
+        allow_unverified,
+        interaction::is_interactive(),
+    ) {
         Consent::NotNeeded | Consent::Given => Ok(()),
         Consent::Refused => Err(format!(
             "{} has no published checksum, so the download cannot be verified. \
@@ -34,7 +44,10 @@ pub fn require(missing_checksum_is_unusual: bool, subject: &str, allow_unverifie
             subject
         )),
         Consent::Ask => {
-            eprintln!("{} has no published checksum, so the download cannot be verified.", subject);
+            eprintln!(
+                "{} has no published checksum, so the download cannot be verified.",
+                subject
+            );
             eprintln!("It is fetched over HTTPS from the official site, but nothing proves the file is intact.");
             match interaction::confirm("Install it anyway?", false) {
                 Some(true) => Ok(()),

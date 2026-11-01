@@ -22,7 +22,11 @@ fn err(output: &Output) -> String {
 fn a_prebuilt_build_and_a_compile_cannot_be_asked_for_together() {
     let output = phpz(&["install", "8.3", "--build", "--variant", "bulk"]);
     assert!(!output.status.success());
-    assert!(err(&output).contains("cannot be used with"), "{}", err(&output));
+    assert!(
+        err(&output).contains("cannot be used with"),
+        "{}",
+        err(&output)
+    );
 }
 
 #[test]
@@ -36,14 +40,22 @@ fn jobs_only_make_sense_when_compiling() {
 fn replace_needs_to_know_what_to_replace_the_version_with() {
     let output = phpz(&["install", "8.3", "--replace"]);
     assert_eq!(output.status.code(), Some(1));
-    assert!(err(&output).contains("--replace needs --variant"), "{}", err(&output));
+    assert!(
+        err(&output).contains("--replace needs --variant"),
+        "{}",
+        err(&output)
+    );
 }
 
 #[test]
 fn an_unknown_build_name_lists_the_choices() {
     let output = phpz(&["install", "8.3", "--variant", "huge"]);
     assert!(!output.status.success());
-    assert!(err(&output).contains("minimal, common, bulk, gnu-bulk"), "{}", err(&output));
+    assert!(
+        err(&output).contains("minimal, common, bulk, gnu-bulk"),
+        "{}",
+        err(&output)
+    );
 }
 
 #[cfg(not(target_os = "linux"))]

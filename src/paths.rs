@@ -6,7 +6,10 @@ pub fn phpz_home() -> Result<PathBuf, String> {
     resolve_home(std::env::var_os("PHPZ_HOME"), dirs::home_dir())
 }
 
-fn resolve_home(override_value: Option<OsString>, home: Option<PathBuf>) -> Result<PathBuf, String> {
+fn resolve_home(
+    override_value: Option<OsString>,
+    home: Option<PathBuf>,
+) -> Result<PathBuf, String> {
     if let Some(value) = override_value.filter(|value| !value.is_empty()) {
         return Ok(PathBuf::from(value));
     }
@@ -23,17 +26,19 @@ pub fn current_link() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("current"))
 }
 
-/// Directory with the `php` shim, which picks the version that applies in the current folder.
-/// This is what goes on PATH.
+/// Directory with the `php` shim, the one that goes on PATH.
 pub fn shims_directory() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("shims"))
 }
 
-/// Directory that phpz 0.2 put on PATH: `current/bin` on Unix, `current` itself on Windows
-/// (the official Windows zip keeps php.exe at its top level). Kept to recognize older setups.
+/// The directory phpz 0.2 put on PATH, kept to recognize older setups.
 pub fn active_bin_directory() -> Result<PathBuf, String> {
     let link = current_link()?;
-    Ok(if cfg!(windows) { link } else { link.join("bin") })
+    Ok(if cfg!(windows) {
+        link
+    } else {
+        link.join("bin")
+    })
 }
 
 #[cfg(test)]
