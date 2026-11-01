@@ -1,8 +1,20 @@
 mod commands;
+mod consent;
+mod download;
+mod environment;
+mod extension_install;
+mod extensions;
 mod ini;
 mod installed;
+mod interaction;
+mod link;
+mod lock;
 mod paths;
+mod pecl;
+mod pipe;
+mod settings;
 mod shell;
+mod user_path;
 mod version;
 
 use clap::Parser;
@@ -20,6 +32,7 @@ struct Cli {
 }
 
 fn main() {
+    pipe::exit_quietly_on_closed_pipe();
     let cli = Cli::parse();
     cli.command.run();
 }

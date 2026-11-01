@@ -1,11 +1,12 @@
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io;
 use std::path::Path;
 
 use flate2::read::GzDecoder;
 use tar::Archive;
 
-use crate::{paths, shell, version};
+use crate::version::Build;
+use crate::{consent, download, extensions, paths, shell, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -17,16 +18,17 @@ date.timezone = UTC
 ";
 
 /// Install a specific PHP version
-pub fn run(version: String) {
-    if let Err(error) = install(&version) {
+pub fn run(version: String, allow_unverified: bool) {
+    if let Err(error) = install(&version, allow_unverified) {
         eprintln!("Error: {}", error);
         std::process::exit(1);
     }
 }
 
-fn install(requested_version: &str) -> Result<(), String> {
+fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String> {
     println!("Resolving version '{}'...", requested_version);
-    let resolved_version = version::resolve_version(requested_version)?;
+    let build = version::resolve_build(requested_version)?;
+    let resolved_version = build.version_name();
 
     let versions_directory = paths::versions_directory()?;
     let final_directory = versions_directory.join(&resolved_version);
@@ -40,6 +42,8 @@ fn install(requested_version: &str) -> Result<(), String> {
         return Ok(());
     }
 
+    confirm_unverified(&build, allow_unverified)?;
+
     // Clean up leftovers from a previous failed attempt
     if temporary_directory.exists() {
         let _ = fs::remove_dir_all(&temporary_directory);
@@ -48,7 +52,8 @@ fn install(requested_version: &str) -> Result<(), String> {
         .map_err(|error| format!("creating temporary directory: {}", error))?;
 
     println!("Installing PHP {}", resolved_version);
-    let result = populate(&resolved_version, &temporary_directory).and_then(|_| {
+    let result = populate(&build, &temporary_directory).and_then(|_| {
+        apply_global_extension_settings(&temporary_directory);
         fs::rename(&temporary_directory, &final_directory)
             .map_err(|error| format!("finalizing installation: {}", error))
     });
@@ -63,25 +68,150 @@ fn install(requested_version: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Download and lay out a version inside `directory`:
+/// Best effort: a problem with the saved settings must never fail an install.
+fn apply_global_extension_settings(directory: &Path) {
+    match extensions::apply_global_settings(directory) {
+        Ok(Some(report)) if !report.describe().is_empty() => {
+            println!("Applied your global extension settings:");
+            for line in report.describe() {
+                println!("  {}", line);
+            }
+            if report.has_unavailable() && cfg!(windows) {
+                println!("  Run 'phpz ext sync --install' to download the missing ones.");
+            }
+        }
+        Ok(_) => {}
+        Err(error) => eprintln!("Note: could not apply your global extension settings: {}", error),
+    }
+}
+
+/// Windows builds that should have a checksum but do not need the user's consent.
+fn confirm_unverified(build: &Build, allow_unverified: bool) -> Result<(), String> {
+    let unusual = build.expects_checksum && build.sha256.is_none();
+    consent::require(unusual, &format!("PHP {}", build.version_name()), allow_unverified)
+}
+
+fn populate(build: &Build, directory: &Path) -> Result<(), String> {
+    if cfg!(windows) {
+        lay_out_windows_build(build, directory)
+    } else {
+        lay_out_static_build(build, directory)
+    }
+}
+
+/// Extensions enabled by default in the Windows php.ini, when the build ships them.
+/// "gd2" is how PHP 7.0 to 7.3 name GD; only the spelling the template has gets activated.
+const WINDOWS_DEFAULT_EXTENSIONS: &[&str] = &[
+    "bz2", "curl", "exif", "fileinfo", "gd", "gd2", "gmp", "intl", "mbstring", "mysqli", "openssl",
+    "pdo_mysql", "pdo_pgsql", "pdo_sqlite", "pgsql", "sockets", "sodium", "sqlite3", "zip",
+];
+
+/// Official Windows zip, extracted as it comes:
+///   php.exe, DLLs, ext\   from the zip
+///   php.ini               php.ini-development with extension_dir and common extensions enabled
+fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> {
+    let archive_path = directory.join("download.zip");
+    download::fetch(&build.url, &archive_path, build.sha256.as_deref())?;
+    download::announce_checksum(build.sha256.is_some());
+    extract_zip(&archive_path, directory)?;
+    let _ = fs::remove_file(&archive_path);
+
+    let template_path = directory.join("php.ini-development");
+    let template = fs::read_to_string(&template_path)
+        .map_err(|error| format!("reading {}: {}", template_path.display(), error))?;
+
+    // PHP 7.0 and 7.1 name extensions by DLL ("extension=php_curl.dll"); 7.2 and later use short names.
+    let directives = windows_directives(!build.at_least(7, 2));
+    fs::write(directory.join("php.ini"), uncomment_directives(&template, &directives))
+        .map_err(|error| format!("writing php.ini: {}", error))
+}
+
+/// The php.ini lines to activate: extension_dir and the default extensions.
+fn windows_directives(uses_dll_names: bool) -> Vec<String> {
+    let mut directives = vec!["extension_dir = \"ext\"".to_string()];
+    directives.extend(WINDOWS_DEFAULT_EXTENSIONS.iter().map(|name| {
+        if uses_dll_names {
+            format!("extension=php_{}.dll", name)
+        } else {
+            format!("extension={}", name)
+        }
+    }));
+    directives
+}
+
+/// Turn `;directive` lines into active `directive` lines, ignoring a trailing `; comment`
+/// when matching. PHP 7.0 to 7.2 write `; extension_dir` with a space, so that one directive
+/// also matches that way; other lines must match exactly so prose comments stay comments.
+/// Anything else is left alone.
+fn uncomment_directives(content: &str, directives: &[String]) -> String {
+    content
+        .split_inclusive('\n')
+        .map(|line| {
+            let text = line.trim_end_matches(['\r', '\n']);
+            let is_wanted = text
+                .strip_prefix(';')
+                .map(|rest| rest.split(';').next().unwrap_or("").trim_end())
+                .map(|rest| {
+                    directives.iter().any(|wanted| {
+                        wanted == rest
+                            || (wanted.starts_with("extension_dir") && wanted == rest.trim_start())
+                    })
+                })
+                .unwrap_or(false);
+            if is_wanted {
+                line[1..].trim_start().to_string()
+            } else {
+                line.to_string()
+            }
+        })
+        .collect()
+}
+
+/// Extract every entry of the zip below `destination`, refusing paths that escape it.
+fn extract_zip(archive_path: &Path, destination: &Path) -> Result<(), String> {
+    let file = File::open(archive_path).map_err(|error| error.to_string())?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|error| format!("reading archive: {}", error))?;
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| format!("reading archive: {}", error))?;
+        let relative_path = entry
+            .enclosed_name()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| format!("unsafe path in archive: {}", entry.name()))?;
+        let target = destination.join(relative_path);
+
+        if entry.is_dir() {
+            fs::create_dir_all(&target).map_err(|error| error.to_string())?;
+            continue;
+        }
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let mut output = File::create(&target)
+            .map_err(|error| format!("creating {}: {}", target.display(), error))?;
+        io::copy(&mut entry, &mut output)
+            .map_err(|error| format!("extracting {}: {}", target.display(), error))?;
+    }
+    Ok(())
+}
+
+/// Static build from static-php-cli (Linux and macOS):
 ///   libexec/php   the real static binary
 ///   bin/php       wrapper script that points PHP at this version's php.ini
 ///   php.ini       configuration
 ///   conf.d/       additional ini files
-fn populate(resolved_version: &str, directory: &Path) -> Result<(), String> {
-    let download_url = version::get_download_url(resolved_version).ok_or_else(|| {
-        "unsupported platform (Windows support is not implemented yet)".to_string()
-    })?;
-
+fn lay_out_static_build(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.tar.gz");
-    download(&download_url, &archive_path)?;
+    download::fetch(&build.url, &archive_path, build.sha256.as_deref())?;
+    download::announce_checksum(build.sha256.is_some());
 
     let libexec_directory = directory.join("libexec");
     fs::create_dir_all(&libexec_directory).map_err(|error| error.to_string())?;
     extract_php_binary(&archive_path, &libexec_directory.join("php"))?;
     let _ = fs::remove_file(&archive_path);
-
-    // TODO: verify integrity (static-php does not publish checksums; consider pinning hashes)
 
     let bin_directory = directory.join("bin");
     fs::create_dir_all(&bin_directory).map_err(|error| error.to_string())?;
@@ -90,50 +220,6 @@ fn populate(resolved_version: &str, directory: &Path) -> Result<(), String> {
     fs::write(directory.join("php.ini"), DEFAULT_INI)
         .map_err(|error| format!("writing php.ini: {}", error))?;
     fs::create_dir_all(directory.join("conf.d")).map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-fn download(url: &str, destination: &Path) -> Result<(), String> {
-    println!("Downloading {}", url);
-    let mut response = reqwest::blocking::get(url)
-        .and_then(|response| response.error_for_status())
-        .map_err(|error| format!("download failed: {}", error))?;
-
-    let total_bytes = response.content_length();
-    let mut file = File::create(destination)
-        .map_err(|error| format!("creating {}: {}", destination.display(), error))?;
-    let mut buffer = [0u8; 64 * 1024];
-    let mut downloaded_bytes: u64 = 0;
-
-    loop {
-        let bytes_read = response
-            .read(&mut buffer)
-            .map_err(|error| format!("download failed: {}", error))?;
-        if bytes_read == 0 {
-            break;
-        }
-        file.write_all(&buffer[..bytes_read])
-            .map_err(|error| error.to_string())?;
-        downloaded_bytes += bytes_read as u64;
-
-        let megabytes = downloaded_bytes as f64 / 1e6;
-        match total_bytes {
-            Some(total) if total > 0 => {
-                eprint!("\r  {:>3}% ({:.1} MB)", downloaded_bytes * 100 / total, megabytes)
-            }
-            _ => eprint!("\r  {:.1} MB", megabytes),
-        }
-    }
-    eprintln!();
-
-    if let Some(total) = total_bytes {
-        if downloaded_bytes != total {
-            return Err(format!(
-                "incomplete download ({} of {} bytes)",
-                downloaded_bytes, total
-            ));
-        }
-    }
     Ok(())
 }
 
@@ -188,3 +274,6 @@ exec \"$DIR/libexec/php\" \"$@\"
     fs::write(path, script).map_err(|error| format!("writing wrapper: {}", error))?;
     set_executable(path)
 }
+
+#[cfg(test)]
+mod tests;

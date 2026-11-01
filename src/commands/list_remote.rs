@@ -11,7 +11,7 @@ pub fn run(all: bool) {
 }
 
 fn list_remote(all: bool) -> Result<(), String> {
-    let available = version::available_version_names()?;
+    let available = version::available_version_names(all)?;
     let installed_versions = installed::installed_versions()?;
 
     let shown: Vec<String> = if all {

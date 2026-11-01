@@ -1,24 +1,14 @@
-use std::fs;
-
-use crate::paths;
+use crate::{link, paths};
 
 /// Deactivate phpz's PHP: remove the `current` link.
 pub fn run() {
-    let link = match paths::current_link() {
-        Ok(link) => link,
+    let result = paths::current_link().and_then(|current| link::remove_link(&current));
+
+    match result {
+        Ok(true) => println!("Deactivated the active PHP version."),
+        Ok(false) => println!("No PHP version is active."),
         Err(error) => {
             eprintln!("Error: {}", error);
-            std::process::exit(1);
-        }
-    };
-
-    match fs::remove_file(&link) {
-        Ok(()) => println!("Deactivated the active PHP version."),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            println!("No PHP version is active.")
-        }
-        Err(error) => {
-            eprintln!("Error: removing {}: {}", link.display(), error);
             std::process::exit(1);
         }
     }

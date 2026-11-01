@@ -1,9 +1,16 @@
+use std::ffi::OsString;
 use std::path::PathBuf;
 
-/// phpz home directory (~/.phpz or %USERPROFILE%\.phpz)
+/// phpz home directory: $PHPZ_HOME when set, otherwise ~/.phpz (%USERPROFILE%\.phpz on Windows)
 pub fn phpz_home() -> Result<PathBuf, String> {
-    dirs::home_dir()
-        .map(|home| home.join(".phpz"))
+    resolve_home(std::env::var_os("PHPZ_HOME"), dirs::home_dir())
+}
+
+fn resolve_home(override_value: Option<OsString>, home: Option<PathBuf>) -> Result<PathBuf, String> {
+    if let Some(value) = override_value.filter(|value| !value.is_empty()) {
+        return Ok(PathBuf::from(value));
+    }
+    home.map(|home| home.join(".phpz"))
         .ok_or_else(|| "could not determine home directory".to_string())
 }
 
@@ -15,3 +22,13 @@ pub fn versions_directory() -> Result<PathBuf, String> {
 pub fn current_link() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("current"))
 }
+
+/// Directory that goes on PATH: `current/bin` on Unix, `current` itself on Windows
+/// (the official Windows zip keeps php.exe at its top level).
+pub fn active_bin_directory() -> Result<PathBuf, String> {
+    let link = current_link()?;
+    Ok(if cfg!(windows) { link } else { link.join("bin") })
+}
+
+#[cfg(test)]
+mod tests;

@@ -5,6 +5,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.2.0] - 2026-11-01
+
+Adds Windows support and extension management.
+
+### Added
+
+- `phpz ext list`, `phpz ext enable <name>` and `phpz ext disable <name>`. On Windows they switch the extensions that come as DLLs in the official zip, editing only the right line of `php.ini`. On Linux and macOS they report what is built into the static builds.
+- `phpz ext enable|disable <name> --global` keeps the choice in `~/.phpz/config.toml`. New installs apply it automatically and `phpz ext sync [--all]` applies it to installed versions. Extensions a version does not have are skipped with a message.
+- `phpz ext install <name>` (Windows) downloads an extension that does not ship with PHP from the PECL server, puts its DLL in `ext` and enables it. The server publishes no checksums, so the first download asks for confirmation (refused in scripts unless `--allow-unverified`) and its SHA-256 is recorded in `downloads.lock`; later downloads of the same address must match. Packages that come with extra libraries, such as imagick, are refused for now.
+- `phpz ext sync --install` downloads the wished extensions a version is missing. New installs and a plain `sync` never download; they suggest it.
+- Windows support (x64). `phpz install` downloads the official non-thread-safe zip from windows.php.net, verifies its SHA-256 and writes a `php.ini` with `extension_dir` and a default set of extensions. `phpz use` switches versions with a directory junction, which needs no administrator rights.
+- `phpz setup` and `phpz setup --undo` on Windows edit the user `PATH` in the registry, keeping the value's type and every other entry exactly as they were. `phpz env` prints a PowerShell line on Windows.
+- PHP 7.0 to 7.3 on Windows (their final releases: 7.0.33, 7.1.33, 7.2.34, 7.3.33), with the `php.ini` naming each series expects.
+- `phpz install` asks for confirmation before installing a Windows build that has no published checksum, and refuses in scripts unless `--allow-unverified` is passed. Linux and macOS do not ask for now.
+- Older Windows patches (PHP 7.0 and newer) can be installed, for example `phpz install 8.3.12`, and are listed by `phpz list --remote --all`. They come from the windows.php.net archives. The SHA-256 is verified when the release has an SBOM; otherwise phpz says that no checksum is published.
+- `phpz use` warns on Windows when `PHP_INI_SCAN_DIR` or `PHPRC` are set, since they make PHP read configuration from another installation.
+- Downloads are verified against the published SHA-256 whenever the source provides one.
+- `PHPZ_HOME` changes the directory phpz uses instead of `~/.phpz`.
+- CI also builds and tests on Windows.
+
+### Changed
+
+- The question that follows the first install no longer accepts by default when the input is closed.
+
+### Fixed
+
+- Closing the output pipe early (`phpz list --remote | head -1`) no longer prints a panic message.
+
 ## [0.1.0] - 2026-10-31
 
 First release. Linux only.

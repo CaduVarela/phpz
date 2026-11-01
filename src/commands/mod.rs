@@ -17,7 +17,13 @@ use clap_complete::Shell;
 #[derive(Subcommand)]
 pub enum Commands {
     /// Install a PHP version ("8", "8.3" or "8.3.9")
-    Install { version: String },
+    Install {
+        version: String,
+
+        /// Install even when no checksum is published to verify the download (needed in scripts)
+        #[arg(long)]
+        allow_unverified: bool,
+    },
     /// Remove an installed version (exact version, as shown by 'phpz list')
     Uninstall { version: String },
     /// Switch the active PHP version
@@ -36,11 +42,11 @@ pub enum Commands {
     Reset,
     /// Show the active PHP version
     Current,
-    /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
+    /// Print shell code to put the active version on PATH (eval "$(phpz env)", or in PowerShell: phpz env | Invoke-Expression)
     Env,
-    /// Add phpz to your PATH by editing your shell profile
+    /// Add phpz to your PATH
     Setup {
-        /// Remove phpz from your shell profile instead
+        /// Remove phpz from your PATH setup instead
         #[arg(long)]
         undo: bool,
     },
@@ -61,7 +67,7 @@ pub enum Commands {
 impl Commands {
     pub fn run(self) {
         match self {
-            Commands::Install { version } => install::run(version),
+            Commands::Install { version, allow_unverified } => install::run(version, allow_unverified),
             Commands::Uninstall { version } => uninstall::run(version),
             Commands::Use { version } => use_cmd::run(version),
             Commands::List { remote: true, all } => list_remote::run(all),
