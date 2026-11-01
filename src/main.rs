@@ -1,6 +1,7 @@
 mod commands;
 mod ini;
 mod installed;
+mod link;
 mod paths;
 mod shell;
 mod version;

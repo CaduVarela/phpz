@@ -23,5 +23,12 @@ pub fn current_link() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("current"))
 }
 
+/// Directory that goes on PATH: `current/bin` on Unix, `current` itself on Windows
+/// (the official Windows zip keeps php.exe at its top level).
+pub fn active_bin_directory() -> Result<PathBuf, String> {
+    let link = current_link()?;
+    Ok(if cfg!(windows) { link } else { link.join("bin") })
+}
+
 #[cfg(test)]
 mod tests;

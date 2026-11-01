@@ -20,6 +20,10 @@ pub enum Shell {
 impl Shell {
     /// Detect the user's login shell from $SHELL.
     pub fn detect() -> Option<Shell> {
+        // Profile files are a Unix concept; the Windows PATH lives in the registry.
+        if cfg!(windows) {
+            return None;
+        }
         let shell_path = std::env::var_os("SHELL")?;
         match Path::new(&shell_path).file_name()?.to_str()? {
             "bash" => Some(Shell::Bash),
@@ -139,10 +143,9 @@ pub fn unconfigure(shell: &Shell) -> Result<bool, String> {
 
 /// Whether the active version's bin directory is on PATH in this process.
 pub fn path_is_active() -> bool {
-    let Ok(link) = paths::current_link() else {
+    let Ok(bin_directory) = paths::active_bin_directory() else {
         return false;
     };
-    let bin_directory = link.join("bin");
     std::env::var_os("PATH")
         .map(|path| std::env::split_paths(&path).any(|entry| entry == bin_directory))
         .unwrap_or(false)
