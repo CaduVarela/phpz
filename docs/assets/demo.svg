@@ -4,20 +4,20 @@ text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",m
 .p{fill:#7ee787;font-size:15px;font-weight:700} .cmd{fill:#ffffff;font-size:15px;font-weight:700}
 .out{fill:#7d8590;font-size:13px} .main{fill:#c9d1d9;font-size:13px} .ok{fill:#7ee787;font-size:13px}
 .title{fill:#7d8590;font-size:12px;font-family:ui-sans-serif,system-ui,sans-serif}
-@keyframes t0{0%,6.427%{width:0}12.596%,97%{width:142.4px}100%{width:0}}#c0{animation:t0 7.78s steps(1,end) infinite}
-@keyframes p0{0%,6.427%{opacity:0}6.437%,97%{opacity:1}100%{opacity:0}}#q0{animation:p0 7.78s steps(1,end) infinite}
-@keyframes o1{0%,15.167%{opacity:0}15.177%,97%{opacity:1}100%{opacity:0}}#o1{animation:o1 7.78s steps(1,end) infinite}
-@keyframes t2{0%,21.465%{width:0}26.093%,97%{width:106.8px}100%{width:0}}#c2{animation:t2 7.78s steps(1,end) infinite}
-@keyframes p2{0%,21.465%{opacity:0}21.475%,97%{opacity:1}100%{opacity:0}}#q2{animation:p2 7.78s steps(1,end) infinite}
-@keyframes o3{0%,28.663%{opacity:0}28.673%,97%{opacity:1}100%{opacity:0}}#o3{animation:o3 7.78s steps(1,end) infinite}
-@keyframes t4{0%,37.532%{width:0}42.931%,97%{width:124.6px}100%{width:0}}#c4{animation:t4 7.78s steps(1,end) infinite}
-@keyframes p4{0%,37.532%{opacity:0}37.542%,97%{opacity:1}100%{opacity:0}}#q4{animation:p4 7.78s steps(1,end) infinite}
-@keyframes o5{0%,45.501%{opacity:0}45.511%,97%{opacity:1}100%{opacity:0}}#o5{animation:o5 7.78s steps(1,end) infinite}
-@keyframes t6{0%,51.799%{width:0}54.113%,97%{width:53.4px}100%{width:0}}#c6{animation:t6 7.78s steps(1,end) infinite}
-@keyframes p6{0%,51.799%{opacity:0}51.809%,97%{opacity:1}100%{opacity:0}}#q6{animation:p6 7.78s steps(1,end) infinite}
-@keyframes o7{0%,56.684%{opacity:0}56.694%,97%{opacity:1}100%{opacity:0}}#o7{animation:o7 7.78s steps(1,end) infinite}
-@keyframes o8{0%,57.198%{opacity:0}57.208%,97%{opacity:1}100%{opacity:0}}#o8{animation:o8 7.78s steps(1,end) infinite}
-@keyframes o9{0%,57.712%{opacity:0}57.722%,97%{opacity:1}100%{opacity:0}}#o9{animation:o9 7.78s steps(1,end) infinite}
+@keyframes t0{0%,4.281%{width:0}8.390%,97%{width:142.4px}100%{width:0}}#c0{animation:t0 11.68s steps(1,end) infinite}
+@keyframes p0{0%,4.281%{opacity:0}4.291%,97%{opacity:1}100%{opacity:0}}#q0{animation:p0 11.68s steps(1,end) infinite}
+@keyframes o1{0%,10.103%{opacity:0}10.113%,97%{opacity:1}100%{opacity:0}}#o1{animation:o1 11.68s steps(1,end) infinite}
+@keyframes t2{0%,14.298%{width:0}17.380%,97%{width:106.8px}100%{width:0}}#c2{animation:t2 11.68s steps(1,end) infinite}
+@keyframes p2{0%,14.298%{opacity:0}14.308%,97%{opacity:1}100%{opacity:0}}#q2{animation:p2 11.68s steps(1,end) infinite}
+@keyframes o3{0%,19.092%{opacity:0}19.102%,97%{opacity:1}100%{opacity:0}}#o3{animation:o3 11.68s steps(1,end) infinite}
+@keyframes t4{0%,25.000%{width:0}28.596%,97%{width:124.6px}100%{width:0}}#c4{animation:t4 11.68s steps(1,end) infinite}
+@keyframes p4{0%,25.000%{opacity:0}25.010%,97%{opacity:1}100%{opacity:0}}#q4{animation:p4 11.68s steps(1,end) infinite}
+@keyframes o5{0%,30.308%{opacity:0}30.318%,97%{opacity:1}100%{opacity:0}}#o5{animation:o5 11.68s steps(1,end) infinite}
+@keyframes t6{0%,34.503%{width:0}36.045%,97%{width:53.4px}100%{width:0}}#c6{animation:t6 11.68s steps(1,end) infinite}
+@keyframes p6{0%,34.503%{opacity:0}34.513%,97%{opacity:1}100%{opacity:0}}#q6{animation:p6 11.68s steps(1,end) infinite}
+@keyframes o7{0%,37.757%{opacity:0}37.767%,97%{opacity:1}100%{opacity:0}}#o7{animation:o7 11.68s steps(1,end) infinite}
+@keyframes o8{0%,38.099%{opacity:0}38.109%,97%{opacity:1}100%{opacity:0}}#o8{animation:o8 11.68s steps(1,end) infinite}
+@keyframes o9{0%,38.442%{opacity:0}38.452%,97%{opacity:1}100%{opacity:0}}#o9{animation:o9 11.68s steps(1,end) infinite}
 </style>
 <rect width="720" height="306" rx="10" fill="#0d1117"/>
 <rect width="720" height="36" rx="10" fill="#161b22"/><rect y="26" width="720" height="10" fill="#161b22"/>
@@ -29,11 +29,11 @@ text{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"DejaVu Sans Mono",m
 <clipPath id="k2"><rect id="c2" x="45.8" y="88" width="106.8" height="22"/></clipPath>
 <text id="q2" x="28" y="104" class="p">$</text><text x="45.8" y="104" class="cmd" clip-path="url(#k2)">phpz use 8.3</text>
 <text id="o3" x="28" y="126" class="out">Now using PHP 8.3.32</text>
-<clipPath id="k4"><rect id="c4" x="108.1" y="144" width="124.6" height="22"/></clipPath>
-<text id="q4" x="28" y="160" class="p">~/shop $</text><text x="108.1" y="160" class="cmd" clip-path="url(#k4)">phpz local 8.2</text>
-<text id="o5" x="28" y="182" class="out">PHP 8.2 will be used in ~/shop (written to .php-version)</text>
-<clipPath id="k6"><rect id="c6" x="108.1" y="186" width="53.4" height="22"/></clipPath>
-<text id="q6" x="28" y="202" class="p">~/shop $</text><text x="108.1" y="202" class="cmd" clip-path="url(#k6)">php -v</text>
+<clipPath id="k4"><rect id="c4" x="152.6" y="144" width="124.6" height="22"/></clipPath>
+<text id="q4" x="28" y="160" class="p">~/myproject $</text><text x="152.6" y="160" class="cmd" clip-path="url(#k4)">phpz local 8.2</text>
+<text id="o5" x="28" y="182" class="out">PHP 8.2 will be used in ~/myproject (written to .php-version)</text>
+<clipPath id="k6"><rect id="c6" x="152.6" y="186" width="53.4" height="22"/></clipPath>
+<text id="q6" x="28" y="202" class="p">~/myproject $</text><text x="152.6" y="202" class="cmd" clip-path="url(#k6)">php -v</text>
 <text id="o7" x="28" y="224" class="main">PHP 8.2.32 (cli) (built: Jul  7 2026 04:58:16) (NTS gcc 14.2.0)</text>
 <text id="o8" x="28" y="244" class="out">Copyright (c) The PHP Group</text>
 <text id="o9" x="28" y="264" class="out">Zend Engine v4.2.32, Copyright (c) Zend Technologies</text>

@@ -11,7 +11,7 @@ Type "phpz install 8.3" Enter
 Sleep 6s
 Type "phpz use 8.3" Enter
 Sleep 1s
-Type "mkdir -p shop && cd shop" Enter
+Type "mkdir -p myproject && cd myproject" Enter
 Type "phpz local 8.2" Enter
 Sleep 1s
 Type "php -v" Enter
