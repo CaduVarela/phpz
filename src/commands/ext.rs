@@ -309,18 +309,12 @@ fn suggest_larger_build(version: &ActiveVersion, name: &str) -> Result<bool, Str
     }
 }
 
-const WINDOWS_ONLY: &str = "installing extensions is only available on Windows for now. \
-Linux and macOS builds are static and cannot load extra extensions.";
-
 fn install_extension(
     name: &str,
     requested: Option<&str>,
     allow_unverified: bool,
     global: bool,
 ) -> Result<(), String> {
-    if !cfg!(windows) {
-        return Err(WINDOWS_ONLY.to_string());
-    }
     let version = ActiveVersion::find()?;
     let name = extensions::extension_name(name);
     if !pecl::is_valid_name(&name) {
@@ -366,9 +360,6 @@ fn describe_choices(choices: &crate::settings::ExtensionSettings) -> String {
 
 /// Make sure the version that applies here has the extensions the project enables.
 fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
-    if install && !cfg!(windows) {
-        return Err(WINDOWS_ONLY.to_string());
-    }
     let version = ActiveVersion::find()?;
     let Some(project) = version
         .project
@@ -393,9 +384,7 @@ fn sync_project(install: bool, allow_unverified: bool) -> Result<(), String> {
     }
     if !install {
         println!("PHP {} lacks: {}", version.name, missing.join(", "));
-        if cfg!(windows) {
-            println!("Run 'phpz ext sync --project --install' to download them.");
-        }
+        println!("Run 'phpz ext sync --project --install' to get them.");
         return Ok(());
     }
 
@@ -426,14 +415,11 @@ fn missing_hint() -> &'static str {
     if cfg!(windows) {
         "Run 'phpz ext sync --install' to download the missing ones."
     } else {
-        "Some of these may exist in a larger build: 'phpz ext enable <name>' offers to switch, and 'phpz variants' lists the builds."
+        "Run 'phpz ext sync --install' to build the missing ones (needs a PHP compiled with --build), or switch to a larger build: 'phpz variants' lists them."
     }
 }
 
 fn sync(all: bool, install: bool, allow_unverified: bool) -> Result<(), String> {
-    if install && !cfg!(windows) {
-        return Err(WINDOWS_ONLY.to_string());
-    }
     let settings = Settings::load()?;
     if settings.extensions.is_empty() {
         println!(

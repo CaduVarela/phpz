@@ -346,7 +346,7 @@ pub fn failure_excerpt(log: &str) -> (&'static str, String) {
 }
 
 /// Run one build step with its output going to the log. On failure the error carries the end of the log.
-fn run_logged(mut command: Command, step: &str, log_path: &Path) -> Result<(), String> {
+pub fn run_logged(mut command: Command, step: &str, log_path: &Path) -> Result<(), String> {
     let log = OpenOptions::new()
         .create(true)
         .append(true)
