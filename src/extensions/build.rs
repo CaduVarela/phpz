@@ -10,6 +10,59 @@ use crate::extensions::pecl;
 use crate::php::source_build;
 use crate::platform::paths;
 
+/// What an extension needs to compile: configure flags and the libraries it links against.
+#[derive(Debug, PartialEq, Default)]
+pub struct Recipe {
+    pub flags: &'static [&'static str],
+    /// pkg-config module and the Debian or Ubuntu package that provides it.
+    pub libraries: &'static [(&'static str, &'static str)],
+}
+
+/// The recipe for an extension; most need nothing beyond PHP itself.
+pub fn recipe_for(name: &str) -> Recipe {
+    match name {
+        "imagick" => Recipe {
+            flags: &["--with-imagick"],
+            libraries: &[("MagickWand", "libmagickwand-dev")],
+        },
+        "gmagick" => Recipe {
+            flags: &["--with-gmagick"],
+            libraries: &[("GraphicsMagick", "libgraphicsmagick1-dev")],
+        },
+        "yaml" => Recipe {
+            flags: &["--with-yaml"],
+            libraries: &[("yaml-0.1", "libyaml-dev")],
+        },
+        "memcached" => Recipe {
+            flags: &["--disable-memcached-sasl"],
+            libraries: &[("libmemcached", "libmemcached-dev"), ("zlib", "zlib1g-dev")],
+        },
+        "ssh2" => Recipe {
+            flags: &["--with-ssh2"],
+            libraries: &[("libssh2", "libssh2-1-dev")],
+        },
+        "rdkafka" => Recipe {
+            flags: &["--with-rdkafka"],
+            libraries: &[("rdkafka", "librdkafka-dev")],
+        },
+        "gnupg" => Recipe {
+            flags: &["--with-gnupg"],
+            libraries: &[("gpgme", "libgpgme-dev")],
+        },
+        _ => Recipe::default(),
+    }
+}
+
+/// The packages to install for the libraries of `recipe` that `has_library` does not find.
+pub fn missing_packages(recipe: &Recipe, has_library: impl Fn(&str) -> bool) -> Vec<&'static str> {
+    recipe
+        .libraries
+        .iter()
+        .filter(|(module, _)| !has_library(module))
+        .map(|(_, package)| *package)
+        .collect()
+}
+
 /// Compile `name` from its PECL source against a PHP that was compiled here, and install the `.so`.
 pub fn build_package(
     version_directory: &Path,
@@ -39,6 +92,16 @@ pub fn build_package(
         ));
     }
 
+    let recipe = recipe_for(name);
+    let packages = missing_packages(&recipe, source_build::pkg_config_has);
+    if !packages.is_empty() {
+        return Err(format!(
+            "{} needs a library this machine lacks. On Debian or Ubuntu: sudo apt install {}",
+            name,
+            packages.join(" ")
+        ));
+    }
+
     let package = pecl::find_source(name, requested)?;
     let mut lock = DownloadLock::load()?;
     let remembered = lock.get(&package.url).map(str::to_string);
@@ -53,15 +116,14 @@ pub fn build_package(
     let _ = fs::remove_dir_all(&work_directory);
     fs::create_dir_all(&work_directory)
         .map_err(|error| format!("creating {}: {}", work_directory.display(), error))?;
-    let log_path = work_directory.join("build.log");
 
     let result = compile(
         &package,
         name,
         &phpize,
         &php_config,
+        &recipe,
         &work_directory,
-        &log_path,
         remembered.as_deref(),
     );
     match result {
@@ -108,10 +170,11 @@ fn compile(
     name: &str,
     phpize: &Path,
     php_config: &Path,
+    recipe: &Recipe,
     work_directory: &Path,
-    log_path: &Path,
     remembered: Option<&str>,
 ) -> Result<(String, PathBuf), String> {
+    let log_path = &work_directory.join("build.log");
     let archive_path = work_directory.join("package.tgz");
     let actual = download::fetch(&package.url, &archive_path, remembered).map_err(|error| {
         if remembered.is_some() {
@@ -140,7 +203,8 @@ fn compile(
     let mut configure = Command::new(source.join("configure"));
     configure
         .current_dir(&source)
-        .arg(format!("--with-php-config={}", php_config.display()));
+        .arg(format!("--with-php-config={}", php_config.display()))
+        .args(recipe.flags);
     source_build::run_logged(configure, "configure", log_path)?;
 
     let mut make = Command::new("make");
