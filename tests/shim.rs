@@ -162,3 +162,109 @@ fn setup_style_refresh_points_the_link_at_this_binary() {
     let link = home.path().join("shims/php");
     assert_eq!(fs::read_link(&link).unwrap(), PathBuf::from(env!("CARGO_BIN_EXE_phpz")));
 }
+
+/// Give 8.3.32 an ext folder with intl and curl DLLs, a php.ini, and a php that prints the
+/// extension lines of the php.ini it was told to read.
+fn prepare_extension_version(home: &Path) {
+    let version = home.join("versions/8.3.32");
+    fs::create_dir_all(version.join("ext")).unwrap();
+    for name in ["intl", "curl"] {
+        fs::write(version.join("ext").join(format!("php_{}.dll", name)), "").unwrap();
+    }
+    fs::write(version.join("php.ini"), "[PHP]\nextension_dir = \"ext\"\n;extension=intl\nextension=curl\n").unwrap();
+
+    let script = "#!/bin/sh\necho \"PHPRC=$PHPRC\"\ngrep -h '^extension' \"$PHPRC/php.ini\"\n";
+    for relative in ["libexec/php", "bin/php"] {
+        let program = version.join(relative);
+        fs::create_dir_all(program.parent().unwrap()).unwrap();
+        fs::write(&program, script).unwrap();
+        fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    }
+}
+
+#[test]
+fn a_projects_extension_choices_reach_php_through_a_generated_ini() {
+    let world = world();
+    prepare_extension_version(world.home.path());
+    fs::write(
+        world.work.path().join(".phpz.toml"),
+        "php = \"8.3\"\n\n[extensions]\nenable = [\"intl\"]\ndisable = [\"curl\"]\n",
+    )
+    .unwrap();
+
+    let lines = out(&php(&world, world.work.path(), &[]));
+    assert!(lines.contains("/projects/"), "php must read a generated ini: {}", lines);
+    assert!(lines.contains("extension=intl"), "{}", lines);
+    assert!(!lines.contains("extension=curl"), "{}", lines);
+
+    let version_ini = fs::read_to_string(world.home.path().join("versions/8.3.32/php.ini")).unwrap();
+    assert!(version_ini.contains("\nextension=curl\n") && version_ini.contains(";extension=intl"), "the version's own php.ini must stay as it was");
+}
+
+#[test]
+fn a_project_that_only_pins_a_version_keeps_the_versions_own_ini() {
+    let world = world();
+    prepare_extension_version(world.home.path());
+    fs::write(world.work.path().join(".php-version"), "8.3\n").unwrap();
+
+    let lines = out(&php(&world, world.work.path(), &[]));
+    assert!(lines.contains("PHPRC=") && lines.contains("/versions/8.3.32"), "{}", lines);
+    assert!(!lines.contains("/projects/"), "{}", lines);
+}
+
+#[test]
+fn another_folder_does_not_see_the_projects_choices() {
+    let world = world();
+    prepare_extension_version(world.home.path());
+    fs::write(world.work.path().join(".phpz.toml"), "php = \"8.3\"\n[extensions]\nenable = [\"intl\"]\n").unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    fs::write(elsewhere.path().join(".php-version"), "8.3\n").unwrap();
+
+    let lines = out(&php(&world, elsewhere.path(), &[]));
+    assert!(!lines.contains("extension=intl"), "{}", lines);
+}
+
+#[test]
+fn sync_project_reports_what_the_version_lacks() {
+    let world = world();
+    prepare_extension_version(world.home.path());
+    fs::write(
+        world.work.path().join(".phpz.toml"),
+        "php = \"8.3\"\n[extensions]\nenable = [\"intl\", \"redis\"]\n",
+    )
+    .unwrap();
+
+    let run = |arguments: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_phpz"))
+            .args(arguments)
+            .env("PHPZ_HOME", world.home.path())
+            .current_dir(world.work.path())
+            .output()
+            .unwrap()
+    };
+
+    let report = run(&["ext", "sync", "--project"]);
+    assert!(report.status.success(), "{}", err(&report));
+    assert!(out(&report).contains("lacks: redis"), "{}", out(&report));
+
+    let install = run(&["ext", "sync", "--project", "--install"]);
+    assert!(!install.status.success());
+    assert!(err(&install).contains("only available on Windows"), "{}", err(&install));
+
+    let list = out(&run(&["ext", "list"]));
+    assert!(list.contains("enables intl, redis"), "{}", list);
+}
+
+#[test]
+fn sync_project_without_extension_choices_says_so() {
+    let world = world();
+    fs::write(world.work.path().join(".php-version"), "8.3\n").unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_phpz"))
+        .args(["ext", "sync", "--project"])
+        .env("PHPZ_HOME", world.home.path())
+        .current_dir(world.work.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(out(&output).contains("No extension choices apply here"), "{}", out(&output));
+}

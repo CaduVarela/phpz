@@ -16,6 +16,8 @@ pub struct Selection {
     /// The full installed version, such as "8.3.32".
     pub version: String,
     pub origin: Origin,
+    /// The project whose files applied, even when it pins no version (it may only set extensions).
+    pub project: Option<Project>,
 }
 
 impl Selection {
@@ -55,7 +57,7 @@ pub fn select(start: &Path) -> Result<Option<Selection>, String> {
     let global = installed::active_version()?;
 
     Ok(choose(project.as_ref(), &versions, global)?
-        .map(|(version, origin)| Selection { version, origin }))
+        .map(|(version, origin)| Selection { version, origin, project }))
 }
 
 pub fn select_here() -> Result<Option<Selection>, String> {

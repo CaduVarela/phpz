@@ -3,7 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::{paths, selection};
+use crate::{paths, project_ini, selection};
 
 /// The name the phpz binary is given inside the shims directory.
 const SHIM_NAME: &str = "php";
@@ -35,18 +35,21 @@ struct Launch {
 /// A version must read its own php.ini whatever another PHP left in the environment. On Unix this
 /// repeats what the `bin/php` wrapper does; on Windows, where php.exe runs directly, the
 /// scan directory that Scoop and others export is cleared instead.
-fn launch_plan(directory: &Path, windows: bool, has_libexec: bool) -> Launch {
+///
+/// `ini_directory` is where php.ini is read from: the version's own directory, or a generated one
+/// that carries a project's extension choices.
+fn launch_plan(directory: &Path, ini_directory: &Path, windows: bool, has_libexec: bool) -> Launch {
     if windows {
         Launch {
             program: directory.join("php.exe"),
-            set: vec![("PHPRC", directory.to_path_buf())],
+            set: vec![("PHPRC", ini_directory.to_path_buf())],
             remove: vec!["PHP_INI_SCAN_DIR"],
         }
     } else if has_libexec {
         Launch {
             program: directory.join("libexec").join("php"),
             set: vec![
-                ("PHPRC", directory.to_path_buf()),
+                ("PHPRC", ini_directory.to_path_buf()),
                 ("PHP_INI_SCAN_DIR", directory.join("conf.d")),
             ],
             remove: vec![],
@@ -73,9 +76,20 @@ pub fn run() -> i32 {
 }
 
 fn launch() -> Result<i32, String> {
-    let directory = selection::require_here()?.directory()?;
+    let selection = selection::require_here()?;
+    let directory = selection.directory()?;
     let has_libexec = directory.join("libexec").join("php").exists();
-    let plan = launch_plan(&directory, cfg!(windows), has_libexec);
+
+    // A problem preparing the project's php.ini must not stop php from running, so it falls back
+    // to the version's own settings.
+    let ini_directory = match &selection.project {
+        Some(project) if !project.extensions.is_empty() => {
+            project_ini::ini_directory(&directory, &selection.version, &project.directory, &project.extensions)
+                .unwrap_or_else(|_| directory.clone())
+        }
+        _ => directory.clone(),
+    };
+    let plan = launch_plan(&directory, &ini_directory, cfg!(windows), has_libexec);
 
     let mut command = Command::new(&plan.program);
     command.args(std::env::args_os().skip(1));
