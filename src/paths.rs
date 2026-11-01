@@ -23,8 +23,14 @@ pub fn current_link() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("current"))
 }
 
-/// Directory that goes on PATH: `current/bin` on Unix, `current` itself on Windows
-/// (the official Windows zip keeps php.exe at its top level).
+/// Directory with the `php` shim, which picks the version that applies in the current folder.
+/// This is what goes on PATH.
+pub fn shims_directory() -> Result<PathBuf, String> {
+    Ok(phpz_home()?.join("shims"))
+}
+
+/// Directory that phpz 0.2 put on PATH: `current/bin` on Unix, `current` itself on Windows
+/// (the official Windows zip keeps php.exe at its top level). Kept to recognize older setups.
 pub fn active_bin_directory() -> Result<PathBuf, String> {
     let link = current_link()?;
     Ok(if cfg!(windows) { link } else { link.join("bin") })

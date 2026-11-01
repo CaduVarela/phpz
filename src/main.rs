@@ -14,6 +14,7 @@ mod project;
 mod pecl;
 mod pipe;
 mod selection;
+mod shim;
 mod settings;
 mod shell;
 mod user_path;
@@ -35,6 +36,9 @@ struct Cli {
 
 fn main() {
     pipe::exit_quietly_on_closed_pipe();
+    if shim::invoked_as_shim() {
+        std::process::exit(shim::run());
+    }
     let cli = Cli::parse();
     cli.command.run();
 }

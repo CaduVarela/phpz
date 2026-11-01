@@ -2,11 +2,13 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{interaction, paths, user_path};
+use crate::{interaction, paths, shim};
+use crate::user_path as registry_path;
+
 
 const BLOCK_START: &str = "# >>> phpz >>>";
 const BLOCK_END: &str = "# <<< phpz <<<";
-const BLOCK_BODY: &str = "export PATH=\"$HOME/.phpz/current/bin:$PATH\"";
+const BLOCK_BODY: &str = "export PATH=\"$HOME/.phpz/shims:$PATH\"";
 
 /// Marker file recording that the first-install question was already asked.
 const PROMPTED_MARKER: &str = ".setup-prompted";
@@ -56,8 +58,13 @@ impl SetupTarget {
         Shell::detect().map(SetupTarget::Profile)
     }
 
-    /// The directory that has to be on PATH (Windows only).
+    /// The directory that has to be on PATH (Windows only): the one with the `php` shim.
     fn windows_entry() -> Result<String, String> {
+        Ok(paths::shims_directory()?.to_string_lossy().into_owned())
+    }
+
+    /// The entry phpz 0.2 added to the user PATH, which `--undo` also takes out.
+    fn legacy_windows_entry() -> Result<String, String> {
         Ok(paths::active_bin_directory()?.to_string_lossy().into_owned())
     }
 
@@ -77,25 +84,32 @@ impl SetupTarget {
             SetupTarget::Profile(shell) => shell
                 .profile_path()
                 .and_then(|path| fs::read_to_string(path).map_err(|error| error.to_string()))
-                .map(|content| content.contains(BLOCK_START))
+                .map(|content| block_is_current(&content))
                 .unwrap_or(false),
             SetupTarget::WindowsUserPath => Self::windows_entry()
-                .map(|entry| user_path::is_configured(&entry))
+                .map(|entry| registry_path::is_configured(&entry))
                 .unwrap_or(false),
         }
     }
 
-    /// Add phpz to PATH. Returns false when it was already there.
+    /// Put the shims on PATH, or bring an older setup up to date. Returns false when nothing changed.
     pub fn configure(&self) -> Result<bool, String> {
+        shim::ensure()?;
         match self {
             SetupTarget::Profile(shell) => {
                 let profile = shell.profile_path()?;
-                match add_block(&read_profile(&profile)?) {
+                let content = read_profile(&profile)?;
+                let updated = if content.contains(BLOCK_START) {
+                    refresh_block(&content)?
+                } else {
+                    add_block(&content)
+                };
+                match updated {
                     Some(updated) => write_profile(&profile, updated).map(|_| true),
                     None => Ok(false),
                 }
             }
-            SetupTarget::WindowsUserPath => user_path::configure(&Self::windows_entry()?),
+            SetupTarget::WindowsUserPath => registry_path::configure(&Self::windows_entry()?),
         }
     }
 
@@ -109,7 +123,11 @@ impl SetupTarget {
                     None => Ok(false),
                 }
             }
-            SetupTarget::WindowsUserPath => user_path::unconfigure(&Self::windows_entry()?),
+            SetupTarget::WindowsUserPath => {
+                let shims = registry_path::unconfigure(&Self::windows_entry()?)?;
+                let legacy = registry_path::unconfigure(&Self::legacy_windows_entry()?)?;
+                Ok(shims || legacy)
+            }
         }
     }
 
@@ -159,6 +177,37 @@ pub fn add_block(content: &str) -> Option<String> {
     Some(updated)
 }
 
+/// Content with the body of an existing phpz block replaced by the current one, so a setup made
+/// by an older phpz is brought up to date in place. Ok(None) when it already is, or when there is
+/// no block; an error when the block is not closed.
+pub fn refresh_block(content: &str) -> Result<Option<String>, String> {
+    let lines: Vec<&str> = content.split_inclusive('\n').collect();
+    let Some(start) = lines.iter().position(|line| line.trim() == BLOCK_START) else {
+        return Ok(None);
+    };
+    let end = lines[start..]
+        .iter()
+        .position(|line| line.trim() == BLOCK_END)
+        .map(|offset| start + offset)
+        .ok_or("found the start of the phpz block but not its end; fix it by hand")?;
+
+    let body: Vec<&str> = lines[start + 1..end].iter().map(|line| line.trim()).collect();
+    if body == [BLOCK_BODY] {
+        return Ok(None);
+    }
+
+    let line_ending = if lines[start].ends_with("\r\n") { "\r\n" } else { "\n" };
+    let new_body = format!("{}{}", BLOCK_BODY, line_ending);
+    Ok(Some(
+        [&lines[..=start], &[new_body.as_str()], &lines[end..]].concat().concat(),
+    ))
+}
+
+/// Whether the profile has a block, and it is the one this phpz writes.
+fn block_is_current(content: &str) -> bool {
+    content.contains(BLOCK_START) && matches!(refresh_block(content), Ok(None))
+}
+
 /// Content without the phpz block (and the blank line `add_block` put before it).
 /// Ok(None) when there is no block; an error when the block is not closed.
 pub fn remove_block(content: &str) -> Result<Option<String>, String> {
@@ -193,20 +242,49 @@ fn write_profile(profile: &Path, content: String) -> Result<(), String> {
     fs::write(profile, content).map_err(|error| format!("writing {}: {}", profile.display(), error))
 }
 
-/// Whether the active version's bin directory is on PATH in this process.
-pub fn path_is_active() -> bool {
-    let Ok(bin_directory) = paths::active_bin_directory() else {
-        return false;
+/// What this process has on PATH from phpz.
+#[derive(Debug, PartialEq)]
+enum PathState {
+    /// The shims directory: every folder gets the version that applies to it.
+    Shims,
+    /// Only what phpz 0.2 added: the default version works, project versions do not.
+    Legacy,
+    Missing,
+}
+
+fn path_state() -> PathState {
+    let (Ok(shims), Ok(legacy)) = (paths::shims_directory(), paths::active_bin_directory()) else {
+        return PathState::Missing;
     };
-    std::env::var_os("PATH")
-        .map(|path| std::env::split_paths(&path).any(|entry| entry == bin_directory))
-        .unwrap_or(false)
+    let Some(path) = std::env::var_os("PATH") else {
+        return PathState::Missing;
+    };
+    let entries: Vec<PathBuf> = std::env::split_paths(&path).collect();
+    if entries.contains(&shims) {
+        PathState::Shims
+    } else if entries.contains(&legacy) {
+        PathState::Legacy
+    } else {
+        PathState::Missing
+    }
+}
+
+/// Whether phpz is on PATH in this process in any form.
+pub fn path_is_active() -> bool {
+    path_state() != PathState::Missing
 }
 
 /// The note `phpz use` prints when the new version is not reachable from this terminal yet.
 pub fn path_note() -> Option<String> {
-    if path_is_active() {
-        return None;
+    match path_state() {
+        PathState::Shims => return None,
+        PathState::Legacy => {
+            return Some(
+                "Note: run 'phpz setup' to update your PATH, so that the version can follow each project."
+                    .to_string(),
+            )
+        }
+        PathState::Missing => {}
     }
     Some(match SetupTarget::detect() {
         Some(target) if target.is_configured() => format!("Note: {}", target.apply_hint()),

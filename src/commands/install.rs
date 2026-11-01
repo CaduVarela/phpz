@@ -6,7 +6,7 @@ use flate2::read::GzDecoder;
 use tar::Archive;
 
 use crate::version::Build;
-use crate::{consent, download, extensions, paths, shell, version};
+use crate::{consent, download, extensions, paths, shell, shim, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -64,6 +64,7 @@ fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String
     }
 
     println!("Successfully installed PHP {}", resolved_version);
+    let _ = shim::ensure();
     shell::offer_setup();
     Ok(())
 }
