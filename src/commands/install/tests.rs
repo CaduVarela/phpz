@@ -127,3 +127,74 @@ fn old_template_with_gd2_gets_gd_activated_and_nothing_else_changes() {
         "extension=gd2\n;extension=ldap\n"
     );
 }
+
+fn version_directory(root: &Path, name: &str, ini: &str, conf_files: &[(&str, &str)]) -> std::path::PathBuf {
+    let directory = root.join(name);
+    fs::create_dir_all(directory.join("conf.d")).unwrap();
+    fs::write(directory.join("php.ini"), ini).unwrap();
+    for (file, content) in conf_files {
+        fs::write(directory.join("conf.d").join(file), content).unwrap();
+    }
+    directory
+}
+
+#[test]
+fn a_new_build_keeps_the_settings_of_the_old_one() {
+    let root = tempfile::tempdir().unwrap();
+    let old = version_directory(root.path(), "old", "memory_limit = 1G\n", &[("extra.ini", "x=1\n")]);
+    let new = version_directory(root.path(), "new", "memory_limit = 512M\n", &[("default.ini", "y=2\n")]);
+
+    carry_over_configuration(&old, &new).unwrap();
+
+    assert_eq!(fs::read_to_string(new.join("php.ini")).unwrap(), "memory_limit = 1G\n");
+    assert_eq!(fs::read_to_string(new.join("conf.d/extra.ini")).unwrap(), "x=1\n");
+    assert!(new.join("conf.d/default.ini").exists(), "files the new build came with stay");
+}
+
+#[test]
+fn carrying_over_from_a_build_without_conf_d_or_php_ini_is_fine() {
+    let root = tempfile::tempdir().unwrap();
+    let old = root.path().join("old");
+    fs::create_dir_all(&old).unwrap();
+    let new = version_directory(root.path(), "new", "memory_limit = 512M\n", &[]);
+
+    carry_over_configuration(&old, &new).unwrap();
+    assert_eq!(fs::read_to_string(new.join("php.ini")).unwrap(), "memory_limit = 512M\n");
+}
+
+#[test]
+fn swapping_puts_the_new_build_in_place_and_removes_the_old_one() {
+    let root = tempfile::tempdir().unwrap();
+    let current = version_directory(root.path(), "8.3.32", "old\n", &[]);
+    let new = version_directory(root.path(), "8.3.32.tmp", "new\n", &[]);
+    let backup = root.path().join("8.3.32.old");
+
+    swap_in(&new, &current, &backup).unwrap();
+
+    assert_eq!(fs::read_to_string(current.join("php.ini")).unwrap(), "new\n");
+    assert!(!new.exists() && !backup.exists());
+}
+
+#[test]
+fn a_failed_swap_puts_the_old_build_back() {
+    let root = tempfile::tempdir().unwrap();
+    let current = version_directory(root.path(), "8.3.32", "old\n", &[]);
+    let missing_new = root.path().join("does-not-exist");
+    let backup = root.path().join("8.3.32.old");
+
+    assert!(swap_in(&missing_new, &current, &backup).is_err());
+
+    assert_eq!(fs::read_to_string(current.join("php.ini")).unwrap(), "old\n", "the old build must be back");
+    assert!(!backup.exists());
+}
+
+#[test]
+fn a_leftover_backup_from_an_earlier_attempt_does_not_block_a_swap() {
+    let root = tempfile::tempdir().unwrap();
+    let current = version_directory(root.path(), "8.3.32", "old\n", &[]);
+    let new = version_directory(root.path(), "8.3.32.tmp", "new\n", &[]);
+    let backup = version_directory(root.path(), "8.3.32.old", "stale\n", &[]);
+
+    swap_in(&new, &current, &backup).unwrap();
+    assert_eq!(fs::read_to_string(current.join("php.ini")).unwrap(), "new\n");
+}

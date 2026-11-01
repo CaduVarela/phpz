@@ -79,6 +79,8 @@ fn parse_series(series: &Value) -> Option<Build> {
             .map(str::to_lowercase),
         sbom_url: None,
         expects_checksum: true,
+        variant: None,
+        size: None,
     })
 }
 
@@ -129,6 +131,8 @@ fn parse_archive_listing(html: &str) -> Vec<Build> {
                 url,
                 sha256: None,
                 expects_checksum: true,
+                variant: None,
+                size: None,
             }
         })
         .collect()
