@@ -7,10 +7,12 @@ use tar::Archive;
 
 use std::collections::BTreeSet;
 
+use crate::commands::ext;
 use crate::download;
 use crate::download::consent;
 use crate::extensions;
 use crate::extensions::settings::Settings;
+use crate::php::installed;
 use crate::php::source_build;
 use crate::php::source_build::Signature;
 use crate::php::variant::{self, Origin, Variant};
@@ -19,6 +21,7 @@ use crate::php::version::Build;
 use crate::platform::interaction;
 use crate::platform::paths;
 use crate::platform::shell;
+use crate::project;
 use crate::project::shim;
 
 const DEFAULT_INI: &str = "\
@@ -30,29 +33,87 @@ display_errors = On
 date.timezone = UTC
 ";
 
-/// Install a specific PHP version
+/// Install a PHP version, or the one this folder pins when none is given
 pub fn run(
-    version: String,
+    version: Option<String>,
     allow_unverified: bool,
     variant: Option<Variant>,
     replace: bool,
     build: bool,
     jobs: Option<usize>,
 ) {
-    let result = if build {
-        install_from_source(&version, replace, jobs, allow_unverified)
+    let result = match version {
+        Some(version) => {
+            install_requested(&version, allow_unverified, variant, replace, build, jobs)
+        }
+        None => install_for_project(allow_unverified, variant, replace, build, jobs),
+    };
+    if let Err(error) = result {
+        eprintln!("Error: {}", error);
+        std::process::exit(1);
+    }
+}
+
+fn install_requested(
+    version: &str,
+    allow_unverified: bool,
+    variant: Option<Variant>,
+    replace: bool,
+    build: bool,
+    jobs: Option<usize>,
+) -> Result<(), String> {
+    if build {
+        install_from_source(version, replace, jobs, allow_unverified)
     } else if replace && variant.is_none() {
         Err(
             "--replace needs --variant (or --build) to say what to switch the version to"
                 .to_string(),
         )
     } else {
-        install(&version, allow_unverified, variant, replace)
-    };
-    if let Err(error) = result {
-        eprintln!("Error: {}", error);
-        std::process::exit(1);
+        install(version, allow_unverified, variant, replace)
     }
+}
+
+/// Install the version this folder pins, then the extensions its `.phpz.toml` enables.
+fn install_for_project(
+    allow_unverified: bool,
+    variant: Option<Variant>,
+    replace: bool,
+    build: bool,
+    jobs: Option<usize>,
+) -> Result<(), String> {
+    let here = std::env::current_dir()
+        .map_err(|error| format!("could not read the current directory: {}", error))?;
+    let project = project::find(&here)?;
+    let pinned = project
+        .as_ref()
+        .and_then(|project| project.php.as_ref())
+        .ok_or("no version given and no .php-version or .phpz.toml with a version found here")?;
+
+    if installed::find_installed(&pinned.request).is_ok() {
+        println!(
+            "PHP {} (pinned by {}) is already installed.",
+            pinned.request,
+            pinned.file.display()
+        );
+    } else {
+        install_requested(
+            &pinned.request,
+            allow_unverified,
+            variant,
+            replace,
+            build,
+            jobs,
+        )?;
+    }
+
+    let wants_extensions = project
+        .as_ref()
+        .is_some_and(|project| !project.extensions.enable.is_empty());
+    if wants_extensions {
+        ext::sync_project(true, allow_unverified)?;
+    }
+    Ok(())
 }
 
 /// Move an installed version to another build (used by `phpz ext enable` when an extension needs it).
