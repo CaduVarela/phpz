@@ -3,7 +3,7 @@ name = "phpz"
 version = "0.1.0"
 edition = "2021"
 authors = ["Carlos Varela <caduvarela@gmail.com>"]
-description = "A simple PHP version manager for Windows and Linux"
+description = "A simple PHP version manager"
 license = "MIT"
 
 [dependencies]
