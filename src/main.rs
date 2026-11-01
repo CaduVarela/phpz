@@ -2,6 +2,7 @@ mod commands;
 mod consent;
 mod download;
 mod environment;
+mod extension_build;
 mod extension_install;
 mod extensions;
 mod ini;

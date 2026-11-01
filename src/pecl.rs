@@ -2,6 +2,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+const SOURCE_BASE_URL: &str = "https://pecl.php.net";
+
 const BASE_URL: &str = "https://downloads.php.net/~windows/pecl/releases";
 
 /// How many releases to look through, newest first, for one that has a build for the PHP in use.
@@ -124,6 +126,55 @@ pub fn find(extension: &str, series: Series, requested: Option<&str>) -> Result<
             .map(|v| format!(" in release {}", v))
             .unwrap_or_default()
     ))
+}
+
+/// Stable versions in the `allreleases.xml` of the PECL REST interface, newest first.
+pub fn stable_versions_from_rest(xml: &str) -> Vec<String> {
+    let mut versions: Vec<(Vec<u32>, String)> = xml
+        .split("<r>")
+        .skip(1)
+        .filter_map(|release| {
+            let version = release.split("<v>").nth(1)?.split("</v>").next()?;
+            let stability = release.split("<s>").nth(1)?.split("</s>").next()?;
+            if stability != "stable" {
+                return None;
+            }
+            let numbers: Option<Vec<u32>> =
+                version.split('.').map(|part| part.parse().ok()).collect();
+            Some((numbers?, version.to_string()))
+        })
+        .collect();
+    versions.sort_by(|left, right| right.0.cmp(&left.0));
+    versions.into_iter().map(|(_, version)| version).collect()
+}
+
+/// The source package of the newest stable release of `extension`, or of the release asked for.
+pub fn find_source(extension: &str, requested: Option<&str>) -> Result<Package, String> {
+    let version = match requested {
+        Some(version) => {
+            if version.is_empty()
+                || !version
+                    .chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '.')
+            {
+                return Err(format!("invalid version '{}'", version));
+            }
+            version.to_string()
+        }
+        None => {
+            let url = format!("{}/rest/r/{}/allreleases.xml", SOURCE_BASE_URL, extension);
+            let xml = fetch_listing(&url)?
+                .ok_or_else(|| format!("'{}' is not a package on pecl.php.net", extension))?;
+            stable_versions_from_rest(&xml)
+                .into_iter()
+                .next()
+                .ok_or_else(|| format!("{} has no stable release on pecl.php.net", extension))?
+        }
+    };
+    Ok(Package {
+        url: format!("{}/get/{}-{}.tgz", SOURCE_BASE_URL, extension, version),
+        version,
+    })
 }
 
 /// Extract `php_<name>.dll` into `ext_directory`, refusing packages that ship other libraries.

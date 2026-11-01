@@ -11,7 +11,7 @@ pub struct Installed {
     pub first_use: bool,
 }
 
-/// Download `name` from the PECL server into a version's `ext` directory, checked against the lock.
+/// Install `name` from PECL: a prebuilt DLL on Windows, a compiled module elsewhere.
 pub fn install_package(
     version_directory: &Path,
     php_version: &str,
@@ -19,6 +19,15 @@ pub fn install_package(
     requested: Option<&str>,
     allow_unverified: bool,
 ) -> Result<Installed, String> {
+    if !cfg!(windows) {
+        return crate::extension_build::build_package(
+            version_directory,
+            php_version,
+            name,
+            requested,
+            allow_unverified,
+        );
+    }
     if !pecl::is_valid_name(name) {
         return Err(format!("'{}' is not a valid extension name", name));
     }
