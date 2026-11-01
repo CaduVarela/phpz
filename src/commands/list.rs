@@ -1,36 +1,34 @@
 use std::fs;
-use std::path::PathBuf;
+use crate::paths;
 
 pub fn run() {
-    let versions_dir = phpz_home().join("versions");
+    let versions_directory = match paths::versions_directory() {
+        Ok(directory) => directory,
+        Err(error) => {
+            eprintln!("Error: {}", error);
+            return;
+        }
+    };
 
-    if !versions_dir.exists() {
+    if !versions_directory.exists() {
         println!("No versions installed.");
         return;
     }
 
     println!("Installed versions:");
 
-    match fs::read_dir(&versions_dir) {
+    match fs::read_dir(&versions_directory) {
         Ok(entries) => {
             for entry in entries.flatten() {
-                if entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false) {
+                if entry.file_type().map(|file_type| file_type.is_dir()).unwrap_or(false) {
                     if let Some(name) = entry.file_name().to_str() {
                         println!("- {}", name);
                     }
                 }
             }
         }
-        Err(err) => {
-            eprintln!("Error reading versions directory: {}", err);
+        Err(error) => {
+            eprintln!("Error reading versions directory: {}", error);
         }
     }
-}
-
-/// Get phpz home directory (~/.phpz or %USERPROFILE%\.phpz)
-fn phpz_home() -> PathBuf {
-    if let Some(home) = dirs::home_dir() {
-        return home.join(".phpz");
-    }
-    panic!("Could not determine home directory");
 }
