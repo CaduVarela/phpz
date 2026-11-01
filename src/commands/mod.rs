@@ -7,6 +7,7 @@ pub mod install;
 pub mod list;
 pub mod list_remote;
 pub mod local;
+pub mod prune;
 pub mod reset;
 pub mod setup;
 pub mod uninstall;
@@ -68,6 +69,12 @@ pub enum Commands {
     Variants,
     /// Deactivate the active PHP version
     Reset,
+    /// Remove generated files of projects that no longer exist
+    Prune {
+        /// Only list what would be removed
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Show the PHP version that applies in the current directory
     Current,
     /// Pin the PHP version of the current directory (writes .php-version), or show it
@@ -124,6 +131,7 @@ impl Commands {
             Commands::List { remote: false, .. } => list::run(),
             Commands::Variants => variants::run(),
             Commands::Reset => reset::run(),
+            Commands::Prune { dry_run } => prune::run(dry_run),
             Commands::Current => current::run(),
             Commands::Local { version, unset } => local::run(version, unset),
             Commands::Which => which::run(),
