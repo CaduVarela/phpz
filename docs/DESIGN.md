@@ -12,9 +12,9 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 
 | Area | Linux | macOS | Windows |
 |---|---|---|---|
-| install, use, list, current, reset, env | done | untested | not implemented |
+| install, uninstall, ls-remote, use, list, current, env, reset, completions | done | untested | not implemented |
 | config get, set, remove | done | untested | not implemented |
-| ext enable, disable | not implemented | not implemented | not implemented |
+| ext enable, disable | exits with an explanatory error | same | same |
 
 ---
 
@@ -67,6 +67,8 @@ The static binary has its `php.ini` search path compiled in (`/usr/local/etc/php
 ## Version Management
 
 - `phpz install <version>`: resolve the version, download, extract and lay out `versions/<version>/`. Accepts `MAJOR`, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`.
+- `phpz uninstall <version>`: remove an installed version. It requires the exact version shown by `list` (so `8.3` never deletes by accident) and refuses to remove the active version.
+- `phpz ls-remote [--all]`: list versions that have a build for this platform, newest patch of each minor by default, marking the ones already installed.
 - `phpz use <version>`: point the `current` symlink at an installed version. The symlink is replaced atomically (create a temporary link, then rename over `current`). Partial versions match the newest installed one.
 - `phpz list`: list installed versions and mark the active one.
 - `phpz current`: show the active version.
@@ -118,7 +120,7 @@ Values are written exactly as the user typed them. phpz never adds quotes, becau
 
 ### Extensions (planned)
 
-`phpz ext enable|disable <name>` is not implemented. With the current static binaries it would have no effect, since extensions are compiled in and external ones cannot be loaded. It becomes meaningful when phpz supports builds that load `.so` files, for example an optional compile-from-source install. Until then the command only prints a placeholder message.
+`phpz ext enable|disable <name>` is not implemented. With the current static binaries it would have no effect, since extensions are compiled in and external ones cannot be loaded. It becomes meaningful when phpz supports builds that load `.so` files, for example an optional compile-from-source install. Until then the command exits with code 1 and an explanatory message.
 
 ### Profiles (planned)
 
@@ -137,6 +139,10 @@ src/
   ini.rs             line-preserving php.ini editor (with unit tests)
   commands/          one module per subcommand
 ```
+
+Version and installed-version selection are pure functions (`select_version`, `select_installed`) so they are unit tested without network or disk access. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings`.
+
+`phpz completions <shell>` prints a completion script generated from the command definitions.
 
 ---
 
