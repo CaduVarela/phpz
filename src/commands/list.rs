@@ -1,5 +1,7 @@
 use crate::installed;
 use crate::selection::{self, Origin, Selection};
+use crate::variant::{self, Variant};
+use crate::paths;
 
 /// List installed versions, marking the one that applies here and the default
 pub fn run() {
@@ -24,8 +26,11 @@ fn list() -> Result<(), String> {
     let global = installed::active_version()?;
 
     println!("Installed versions:");
+    let versions_directory = paths::versions_directory()?;
     for version in &versions {
-        println!("{}", label(version, effective.as_ref(), global.as_deref()));
+        // Windows has one build, so there is nothing to tell apart there.
+        let build = if cfg!(windows) { None } else { Some(variant::read(&versions_directory.join(version))) };
+        println!("{}", label(version, effective.as_ref(), global.as_deref(), build));
     }
     if let Some(problem) = problem {
         println!("\nNote: {}", problem);
@@ -34,7 +39,15 @@ fn list() -> Result<(), String> {
 }
 
 /// One line of the list: "* 8.2.35 (active, set by ...)", "  8.4.27 (default)" or "  8.3.32".
-fn label(version: &str, effective: Option<&Selection>, global: Option<&str>) -> String {
+fn label(version: &str, effective: Option<&Selection>, global: Option<&str>, build: Option<Variant>) -> String {
+    let line = base_label(version, effective, global);
+    match build {
+        Some(build) if build != variant::DEFAULT => format!("{} [{}]", line, build.name()),
+        _ => line,
+    }
+}
+
+fn base_label(version: &str, effective: Option<&Selection>, global: Option<&str>) -> String {
     let is_effective = effective.map(|selection| selection.version == version).unwrap_or(false);
     if is_effective {
         return match effective.map(|selection| &selection.origin) {

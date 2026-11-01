@@ -19,6 +19,7 @@ mod shim;
 mod settings;
 mod shell;
 mod user_path;
+mod variant;
 mod version;
 
 use clap::Parser;

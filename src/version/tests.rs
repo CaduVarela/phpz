@@ -11,6 +11,8 @@ fn builds(versions: &[Version]) -> Vec<Build> {
             sha256: None,
             sbom_url: None,
             expects_checksum: false,
+            variant: None,
+            size: None,
         })
         .collect()
 }
@@ -60,6 +62,8 @@ fn selected_build_keeps_its_url_and_checksum() {
         sha256: Some("abc".to_string()),
         sbom_url: None,
         expects_checksum: false,
+        variant: None,
+        size: None,
     }];
     let build = find_build(&available, &[8, 3]).unwrap();
     assert_eq!(build.url, "https://example.test/php.zip");

@@ -21,7 +21,7 @@ pub fn installed_versions() -> Result<Vec<String>, String> {
                 .unwrap_or(false)
         })
         .filter_map(|entry| entry.file_name().into_string().ok())
-        .filter(|name| !name.ends_with(".tmp"))
+        .filter(|name| !name.ends_with(".tmp") && !name.ends_with(".old"))
         .collect();
     names.sort_by_key(|name| version_sort_key(name));
     Ok(names)

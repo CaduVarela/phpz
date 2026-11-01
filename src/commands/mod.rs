@@ -3,6 +3,7 @@ pub mod uninstall;
 pub mod use_cmd;
 pub mod list;
 pub mod list_remote;
+pub mod variants;
 pub mod reset;
 pub mod current;
 pub mod local;
@@ -16,6 +17,8 @@ pub mod ext;
 use clap::Subcommand;
 use clap_complete::Shell;
 
+use crate::variant::Variant;
+
 #[derive(Subcommand)]
 pub enum Commands {
     /// Install a PHP version ("8", "8.3" or "8.3.9")
@@ -25,6 +28,14 @@ pub enum Commands {
         /// Install even when no checksum is published to verify the download (needed in scripts)
         #[arg(long)]
         allow_unverified: bool,
+
+        /// Linux and macOS build: minimal, common (default), bulk or gnu-bulk. See 'phpz variants'
+        #[arg(long, value_parser = Variant::parse_argument)]
+        variant: Option<Variant>,
+
+        /// Switch an installed version to the build given by --variant, keeping its php.ini
+        #[arg(long, requires = "variant")]
+        replace: bool,
     },
     /// Remove an installed version (exact version, as shown by 'phpz list')
     Uninstall { version: String },
@@ -39,7 +50,13 @@ pub enum Commands {
         /// With --remote, show every patch version instead of the newest of each minor
         #[arg(long, requires = "remote")]
         all: bool,
+
+        /// With --remote, list the versions of this build (Linux and macOS)
+        #[arg(long, requires = "remote", value_parser = Variant::parse_argument)]
+        variant: Option<Variant>,
     },
+    /// Show the builds of PHP you can install on Linux and macOS, and what each has
+    Variants,
     /// Deactivate the active PHP version
     Reset,
     /// Show the PHP version that applies in the current directory
@@ -80,11 +97,12 @@ pub enum Commands {
 impl Commands {
     pub fn run(self) {
         match self {
-            Commands::Install { version, allow_unverified } => install::run(version, allow_unverified),
+            Commands::Install { version, allow_unverified, variant, replace } => install::run(version, allow_unverified, variant, replace),
             Commands::Uninstall { version } => uninstall::run(version),
             Commands::Use { version } => use_cmd::run(version),
-            Commands::List { remote: true, all } => list_remote::run(all),
+            Commands::List { remote: true, all, variant } => list_remote::run(all, variant),
             Commands::List { remote: false, .. } => list::run(),
+            Commands::Variants => variants::run(),
             Commands::Reset => reset::run(),
             Commands::Current => current::run(),
             Commands::Local { version, unset } => local::run(version, unset),

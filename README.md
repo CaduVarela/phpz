@@ -57,6 +57,9 @@ phpz completions bash > ~/.local/share/bash-completion/completions/phpz
 
 ```bash
 phpz list --remote      # list versions available for download (add --all for every patch)
+phpz variants           # Linux and macOS: the builds you can choose from, and what each has
+phpz install 8.3 --variant bulk                  # a larger build with intl, opcache, imagick...
+phpz install 8.3.32 --variant bulk --replace     # move an installed version to another build, keeping its php.ini
 phpz install 8.3        # install the latest 8.3.x (also accepts "8" or "8.3.9")
 phpz install 7.3.33 --allow-unverified   # Windows: skip the question for a build with no published checksum
 phpz list               # list installed versions, marking the active one
@@ -87,9 +90,20 @@ phpz ext sync --install --all    # Windows: also download what each version is m
 phpz completions bash   # also zsh, fish, elvish and powershell
 ```
 
-**Extensions.** On Windows the official zip ships the extensions as DLLs, so `phpz ext enable|disable` just switches the right line of the version's `php.ini` (the file keeps its comments, order and line endings). `--global` also records the choice in `~/.phpz/config.toml`, and from then on every version you install gets it, and `phpz ext sync` applies it to the ones you already have. An extension a version does not have is skipped with a message, never an error. On Linux and macOS the builds are static with a fixed set of extensions: `phpz ext list` shows what is built in, enabling a built-in one is a no-op, and one that is not in the build is reported as unavailable. 
+**Extensions.** On Windows the official zip ships the extensions as DLLs, so `phpz ext enable|disable` just switches the right line of the version's `php.ini` (the file keeps its comments, order and line endings). `--global` also records the choice in `~/.phpz/config.toml`, and from then on every version you install gets it, and `phpz ext sync` applies it to the ones you already have. An extension a version does not have is skipped with a message, never an error. On Linux and macOS the extensions are part of the build you installed: `phpz ext list` shows what is built in, and enabling a built-in one is a no-op. Asking for one the build lacks does not just fail: if another build has it, phpz says which, **says what that build would lose**, and switches only if you answer yes (see Builds below). 
 
 **Installing extensions that do not ship with PHP (Windows).** `phpz ext install xdebug` downloads the newest stable release that has a build for your PHP (non thread safe, x64) from the PECL server at downloads.php.net, puts its DLL in the version's `ext` directory and enables it. `--version` picks another release and `--global` also keeps it wished for in every version. That server publishes no checksums, so the first download of a file asks for your confirmation (the default is no; in a script it is refused unless you pass `--allow-unverified`), and phpz records its SHA-256 in `~/.phpz/downloads.lock`. From then on the same address must give the same file, or nothing is installed. `phpz ext sync --install` downloads the wished extensions a version is missing, which is how a freshly installed PHP catches up. Installing a version and `phpz ext sync` without `--install` never download extensions by themselves. Extensions that come with extra libraries (imagick, for example) are refused for now. On Linux and macOS the builds are static and cannot load extra extensions at all.
+
+**Builds on Linux and macOS.** static-php publishes several builds of PHP, and `phpz variants` shows each with its size and how its extensions differ from the default:
+
+| Build | Size (PHP 8.3) | What it is |
+|---|---|---|
+| `minimal` | about 3 MB | a handful of core extensions |
+| `common` | about 12 MB | the **default**: the usual web stack, fast to install |
+| `bulk` | about 30 MB | adds `intl`, `opcache`, `imagick`, `apcu`, `swoole` and more, but lacks `pdo_sqlite` and `pdo_pgsql`, which `common` has |
+| `gnu-bulk` | about 40 MB | the same extensions as `bulk`, built dynamically for glibc, so it can load `.so` files (Linux only, PHP 8.1 and newer) |
+
+The lists come from the server when you ask, so they are never out of date. A larger build is never installed unless you ask for it with `--variant`, or answer yes to a question: phpz asks when your global extension settings need something the default build lacks, and when `phpz ext enable` finds that another build has the extension. The question always says what the other build lacks. `phpz install <version> --variant <name> --replace` moves a version to another build and keeps its `php.ini` and `conf.d`; the old build is put back if anything fails. `phpz list` shows the build of a version when it is not the default.
 
 **Per-project versions.** A project can say which PHP it needs. phpz looks for a `.php-version` (just a version such as `8.2`, `8.2.34` or `v8.2`, the same file other version managers read) or a `.phpz.toml` in the current folder and then in each parent folder, and uses the nearest one. `.phpz.toml` holds `php = "8.2"` and, later, the project's extensions, and wins over a `.php-version` in the same folder. A version that is not installed is an error that names the file and says what to run, never a silent fallback to another PHP. `phpz current`, `list`, `which`, `config` and `ext` follow the project, and so does the plain `php` command: `phpz setup` puts `~/.phpz/shims` (on Windows, `%USERPROFILE%\.phpz\shims`) on your `PATH`, and the `php` in it is phpz itself, which finds the version for the folder it runs in and starts that PHP. It starts it with that version's own `php.ini` and, on Windows, without a `PHP_INI_SCAN_DIR` exported by another PHP such as Scoop's, which would otherwise make extensions load twice. Arguments and the exit code pass through unchanged.
 
@@ -147,7 +161,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 
 ## Limitations
 
-- On Linux and macOS the binaries are fully static. They ship with a fixed set of extensions (bcmath, curl, gd, mbstring, mysqlnd, openssl, pdo_mysql, pdo_pgsql, pdo_sqlite, redis, zip and others), and extensions that are not compiled in (for example `xdebug`, `intl` or `opcache`) cannot be loaded.
+- On Linux and macOS each build has a fixed set of extensions. The default `common` build has the usual web stack; `intl`, `opcache` and `imagick` need `bulk` or `gnu-bulk`. `xdebug`, `mongodb`, `pcov`, `igbinary` and `memcached` are in none of them, and only `gnu-bulk` could load an extension file, which phpz cannot provide yet.
 - On Linux and macOS, downloads are not verified against a checksum, because upstream does not publish them.
 - On Windows, PHP 7.0 and newer are available (`phpz list --remote --all`), as the non-thread-safe x64 build, and the official builds need the Microsoft Visual C++ Redistributable. PHP 7.0 to 7.3 only have their final release (7.0.33, 7.1.33, 7.2.34, 7.3.33) in the official archive.
 - On Windows, the newest release of each series and the most recent patches are verified against a published SHA-256. For most older patches windows.php.net publishes no checksum at all. Installing one asks for confirmation (the default is no), and in a script it is refused unless you pass `--allow-unverified`. Linux and macOS builds have no checksum either and do not ask for now; phpz only prints a note.
@@ -160,7 +174,6 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 
 - Download integrity verification on Linux and macOS.
 - Extensions that come with extra libraries (imagick), and installing extensions on Linux and macOS.
-- Offering a larger build on Linux and macOS when an extension needs it, asking first, so the small fast build stays the default.
 - Per-project versions and extensions.
 - `php.ini` profiles (`phpz config use dev`).
 

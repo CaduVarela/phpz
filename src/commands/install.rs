@@ -5,8 +5,12 @@ use std::path::Path;
 use flate2::read::GzDecoder;
 use tar::Archive;
 
+use std::collections::BTreeSet;
+
+use crate::settings::Settings;
+use crate::variant::{self, Variant};
 use crate::version::Build;
-use crate::{consent, download, extensions, paths, shell, shim, version};
+use crate::{consent, download, extensions, interaction, paths, shell, shim, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -18,16 +22,88 @@ date.timezone = UTC
 ";
 
 /// Install a specific PHP version
-pub fn run(version: String, allow_unverified: bool) {
-    if let Err(error) = install(&version, allow_unverified) {
+pub fn run(version: String, allow_unverified: bool, variant: Option<Variant>, replace: bool) {
+    if let Err(error) = install(&version, allow_unverified, variant, replace) {
         eprintln!("Error: {}", error);
         std::process::exit(1);
     }
 }
 
-fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String> {
+/// Move an installed version to another build (used by `phpz ext enable` when an extension needs it).
+pub fn switch_build(version: &str, variant: Variant) -> Result<(), String> {
+    install(version, false, Some(variant), true)
+}
+
+/// Which build to install: the one asked for, or the default, or a larger one the user agrees to
+/// because their global extension settings need it. Windows has a single official build.
+fn choose_variant(requested: Option<Variant>) -> Result<Variant, String> {
+    if cfg!(windows) {
+        return match requested {
+            Some(_) => Err("--variant is for Linux and macOS. Windows has one official build per version.".to_string()),
+            None => Ok(variant::DEFAULT),
+        };
+    }
+    if let Some(variant) = requested {
+        variant::runs_here(variant)?;
+        return Ok(variant);
+    }
+    // Looking for a larger build must never get in the way of installing the usual one.
+    Ok(offer_larger_build().ok().flatten().unwrap_or(variant::DEFAULT))
+}
+
+/// When the global extension settings enable something the default build lacks, offer the smallest
+/// build that has all of it, and say what that build lacks. Only in a terminal, and only asking.
+fn offer_larger_build() -> Result<Option<Variant>, String> {
+    if !interaction::is_interactive() {
+        return Ok(None);
+    }
+    let wanted: BTreeSet<String> = Settings::load()?.extensions.enable.into_iter().collect();
+    if wanted.is_empty() {
+        return Ok(None);
+    }
+    let default_extensions = version::variant_extensions(variant::DEFAULT)?;
+    let missing: Vec<String> = wanted.difference(&default_extensions).cloned().collect();
+    if missing.is_empty() {
+        return Ok(None);
+    }
+
+    let mut candidates = Vec::new();
+    for candidate in Variant::ALL {
+        if candidate == variant::DEFAULT || variant::runs_here(candidate).is_err() {
+            continue;
+        }
+        if let Ok(extensions) = version::variant_extensions(candidate) {
+            candidates.push((candidate, extensions));
+        }
+    }
+    let Some(target) = variant::smallest_covering(&candidates, &wanted) else {
+        return Ok(None);
+    };
+    let target_extensions = candidates
+        .iter()
+        .find(|(candidate, _)| *candidate == target)
+        .map(|(_, extensions)| extensions.clone())
+        .unwrap_or_default();
+
+    eprintln!("Your global extension settings enable {}, which the {} build lacks.", missing.join(", "), variant::DEFAULT.name());
+    eprintln!("The {} build has them, and is a larger download.", target.name());
+    let lost = variant::lost_by_switching(&default_extensions, &target_extensions);
+    if !lost.is_empty() {
+        eprintln!("It lacks {}, which the {} build has.", lost.join(", "), variant::DEFAULT.name());
+    }
+    let question = format!("Use the {} build for this version?", target.name());
+    Ok(interaction::confirm(&question, false).filter(|answer| *answer).map(|_| target))
+}
+
+fn install(
+    requested_version: &str,
+    allow_unverified: bool,
+    requested_variant: Option<Variant>,
+    replace: bool,
+) -> Result<(), String> {
+    let variant = choose_variant(requested_variant)?;
     println!("Resolving version '{}'...", requested_version);
-    let build = version::resolve_build(requested_version)?;
+    let build = version::resolve_build(requested_version, variant)?;
     let resolved_version = build.version_name();
 
     let versions_directory = paths::versions_directory()?;
@@ -37,10 +113,21 @@ fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String
     fs::create_dir_all(&versions_directory)
         .map_err(|error| format!("creating versions directory: {}", error))?;
 
-    if final_directory.exists() {
-        println!("PHP {} is already installed.", resolved_version);
-        return Ok(());
-    }
+    let replacing = if final_directory.exists() {
+        let existing = variant::read(&final_directory);
+        if replace && !cfg!(windows) && existing != variant {
+            true
+        } else {
+            let which = if cfg!(windows) { String::new() } else { format!(" (the {} build)", existing.name()) };
+            println!("PHP {} is already installed{}.", resolved_version, which);
+            if !cfg!(windows) && requested_variant.is_some() && existing != variant {
+                println!("To switch it to the {} build, add --replace.", variant.name());
+            }
+            return Ok(());
+        }
+    } else {
+        false
+    };
 
     confirm_unverified(&build, allow_unverified)?;
 
@@ -51,11 +138,30 @@ fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String
     fs::create_dir_all(&temporary_directory)
         .map_err(|error| format!("creating temporary directory: {}", error))?;
 
-    println!("Installing PHP {}", resolved_version);
+    if replacing {
+        println!(
+            "Switching PHP {} from the {} build to the {} build",
+            resolved_version,
+            variant::read(&final_directory).name(),
+            variant.name()
+        );
+    } else if cfg!(windows) || variant == variant::DEFAULT {
+        println!("Installing PHP {}", resolved_version);
+    } else {
+        println!("Installing PHP {} (the {} build)", resolved_version, variant.name());
+    }
     let result = populate(&build, &temporary_directory).and_then(|_| {
+        if replacing {
+            carry_over_configuration(&final_directory, &temporary_directory)?;
+        }
         apply_global_extension_settings(&temporary_directory);
-        fs::rename(&temporary_directory, &final_directory)
-            .map_err(|error| format!("finalizing installation: {}", error))
+        if replacing {
+            let backup = versions_directory.join(format!("{}.old", resolved_version));
+            swap_in(&temporary_directory, &final_directory, &backup)
+        } else {
+            fs::rename(&temporary_directory, &final_directory)
+                .map_err(|error| format!("finalizing installation: {}", error))
+        }
     });
 
     if let Err(error) = result {
@@ -65,7 +171,41 @@ fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String
 
     println!("Successfully installed PHP {}", resolved_version);
     let _ = shim::ensure();
-    shell::offer_setup();
+    // The question belongs to a first install, not to moving a version to another build.
+    if !replacing {
+        shell::offer_setup();
+    }
+    Ok(())
+}
+
+/// A new build of a version keeps the old one's php.ini and conf.d, so switching builds does not
+/// lose the settings the user made.
+fn carry_over_configuration(old: &Path, new: &Path) -> Result<(), String> {
+    let old_ini = old.join("php.ini");
+    if old_ini.exists() {
+        fs::copy(&old_ini, new.join("php.ini")).map_err(|error| format!("keeping php.ini: {}", error))?;
+    }
+    if let Ok(entries) = fs::read_dir(old.join("conf.d")) {
+        fs::create_dir_all(new.join("conf.d")).map_err(|error| error.to_string())?;
+        for entry in entries.flatten().filter(|entry| entry.path().is_file()) {
+            fs::copy(entry.path(), new.join("conf.d").join(entry.file_name()))
+                .map_err(|error| format!("keeping conf.d: {}", error))?;
+        }
+    }
+    Ok(())
+}
+
+/// Put `new` where `current` is, setting the old one aside first and putting it back on failure.
+fn swap_in(new: &Path, current: &Path, backup: &Path) -> Result<(), String> {
+    if backup.exists() {
+        let _ = fs::remove_dir_all(backup);
+    }
+    fs::rename(current, backup).map_err(|error| format!("setting the old build aside: {}", error))?;
+    if let Err(error) = fs::rename(new, current) {
+        let _ = fs::rename(backup, current);
+        return Err(format!("installing the new build: {}", error));
+    }
+    let _ = fs::remove_dir_all(backup);
     Ok(())
 }
 
@@ -77,8 +217,12 @@ fn apply_global_extension_settings(directory: &Path) {
             for line in report.describe() {
                 println!("  {}", line);
             }
-            if report.has_unavailable() && cfg!(windows) {
-                println!("  Run 'phpz ext sync --install' to download the missing ones.");
+            if report.has_unavailable() {
+                if cfg!(windows) {
+                    println!("  Run 'phpz ext sync --install' to download the missing ones.");
+                } else {
+                    println!("  A larger build may have them: see 'phpz variants'.");
+                }
             }
         }
         Ok(_) => {}
@@ -218,6 +362,9 @@ fn lay_out_static_build(build: &Build, directory: &Path) -> Result<(), String> {
     fs::create_dir_all(&bin_directory).map_err(|error| error.to_string())?;
     write_wrapper_script(&bin_directory.join("php"))?;
 
+    if let Some(variant) = build.variant {
+        variant::write(directory, variant)?;
+    }
     fs::write(directory.join("php.ini"), DEFAULT_INI)
         .map_err(|error| format!("writing php.ini: {}", error))?;
     fs::create_dir_all(directory.join("conf.d")).map_err(|error| error.to_string())?;
