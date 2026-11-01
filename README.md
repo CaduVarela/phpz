@@ -53,7 +53,7 @@ phpz completions bash > ~/.local/share/bash-completion/completions/phpz
 ## Usage
 
 ```bash
-phpz ls-remote          # list versions available for download (--all for every patch)
+phpz list --remote      # list versions available for download (add --all for every patch)
 phpz install 8.3        # install the latest 8.3.x (also accepts "8" or "8.3.9")
 phpz list               # list installed versions, marking the active one
 phpz uninstall 8.3.32   # remove an installed version (exact version, not the active one)

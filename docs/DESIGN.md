@@ -12,7 +12,7 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 
 | Area | Linux | macOS | Windows |
 |---|---|---|---|
-| install, uninstall, ls-remote, use, list, current, env, reset, completions | done | untested | not implemented |
+| install, uninstall, list --remote, use, list, current, env, reset, completions | done | untested | not implemented |
 | config get, set, remove | done | untested | not implemented |
 | ext enable, disable | exits with an explanatory error | same | same |
 
@@ -68,7 +68,7 @@ The static binary has its `php.ini` search path compiled in (`/usr/local/etc/php
 
 - `phpz install <version>`: resolve the version, download, extract and lay out `versions/<version>/`. Accepts `MAJOR`, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`.
 - `phpz uninstall <version>`: remove an installed version. It requires the exact version shown by `list` (so `8.3` never deletes by accident) and refuses to remove the active version.
-- `phpz ls-remote [--all]`: list versions that have a build for this platform, newest patch of each minor by default, marking the ones already installed.
+- `phpz list --remote [--all]`: list versions that have a build for this platform, newest patch of each minor by default, marking the ones already installed. `--all` is only accepted together with `--remote`.
 - `phpz use <version>`: point the `current` symlink at an installed version. The symlink is replaced atomically (create a temporary link, then rename over `current`). Partial versions match the newest installed one.
 - `phpz list`: list installed versions and mark the active one.
 - `phpz current`: show the active version.
