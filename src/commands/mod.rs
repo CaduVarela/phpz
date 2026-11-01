@@ -2,6 +2,8 @@ pub mod install;
 pub mod use_cmd;
 pub mod list;
 pub mod reset;
+pub mod current;
+pub mod env;
 pub mod config;
 pub mod ext;
 
@@ -14,6 +16,8 @@ pub enum Commands {
     List,
     Reset,
     Current,
+    /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
+    Env,
     Config {
         #[command(subcommand)]
         command: config::ConfigCommands,
@@ -31,9 +35,8 @@ impl Commands {
             Commands::Use { version } => use_cmd::run(version),
             Commands::List => list::run(),
             Commands::Reset => reset::run(),
-            Commands::Current => {
-                println!("(current) Showing current PHP version...");
-            }
+            Commands::Current => current::run(),
+            Commands::Env => env::run(),
             Commands::Config { command } => command.run(),
             Commands::Ext { command } => command.run(),
         }
