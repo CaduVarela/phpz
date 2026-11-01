@@ -4,6 +4,7 @@ use clap::Subcommand;
 
 use crate::extensions::{self, Outcome};
 use crate::ini::IniDocument;
+use crate::settings::Settings;
 use crate::{installed, paths};
 
 #[derive(Subcommand)]
@@ -12,10 +13,29 @@ pub enum ExtCommands {
     List,
 
     /// Enable an extension in the active PHP version
-    Enable { name: String },
+    Enable {
+        name: String,
+
+        /// Also keep it enabled in every version, now and when installed later
+        #[arg(long)]
+        global: bool,
+    },
 
     /// Disable an extension in the active PHP version
-    Disable { name: String },
+    Disable {
+        name: String,
+
+        /// Also keep it disabled in every version, now and when installed later
+        #[arg(long)]
+        global: bool,
+    },
+
+    /// Apply the global extension settings to the active version (or to all with --all)
+    Sync {
+        /// Every installed version, not only the active one
+        #[arg(long)]
+        all: bool,
+    },
 }
 
 struct ActiveVersion {
@@ -47,8 +67,9 @@ impl ExtCommands {
     fn execute(self) -> Result<(), String> {
         match self {
             ExtCommands::List => list(),
-            ExtCommands::Enable { name } => toggle(&name, true),
-            ExtCommands::Disable { name } => toggle(&name, false),
+            ExtCommands::Enable { name, global } => toggle(&name, true, global),
+            ExtCommands::Disable { name, global } => toggle(&name, false, global),
+            ExtCommands::Sync { all } => sync(all),
         }
     }
 }
@@ -83,7 +104,7 @@ fn print_group(title: &str, names: &[String]) {
     }
 }
 
-fn toggle(name: &str, enable: bool) -> Result<(), String> {
+fn toggle(name: &str, enable: bool, global: bool) -> Result<(), String> {
     let version = ActiveVersion::find()?;
     let mut ini = load_ini(&version)?;
     let available = extensions::available_shared(&version.directory);
@@ -121,6 +142,59 @@ fn toggle(name: &str, enable: bool) -> Result<(), String> {
             };
             return Err(format!("{} is not available in PHP {}. {}", name, version.name, reason));
         }
+    }
+
+    // Only reached when the extension is known here, so a typo never ends up in the settings.
+    if global {
+        let mut settings = Settings::load()?;
+        if enable {
+            settings.want_enabled(&name);
+        } else {
+            settings.want_disabled(&name);
+        }
+        settings.save()?;
+        let state = if enable { "enabled" } else { "disabled" };
+        println!("Saved {} as {} in your global settings. Every version you install or sync gets it.", name, state);
+    }
+    Ok(())
+}
+
+fn sync(all: bool) -> Result<(), String> {
+    if Settings::load()?.extensions.is_empty() {
+        println!("There are no global extension settings yet. Use 'phpz ext enable <name> --global'.");
+        return Ok(());
+    }
+
+    let versions: Vec<String> = if all {
+        installed::installed_versions()?
+    } else {
+        vec![ActiveVersion::find()?.name]
+    };
+    if versions.is_empty() {
+        return Err("no PHP versions are installed".to_string());
+    }
+
+    let mut failures = 0;
+    for name in versions {
+        let directory = paths::versions_directory()?.join(&name);
+        match extensions::apply_global_settings(&directory) {
+            Ok(Some(report)) if report.describe().is_empty() => println!("PHP {}: already in sync", name),
+            Ok(Some(report)) => {
+                println!("PHP {}:", name);
+                for line in report.describe() {
+                    println!("  {}", line);
+                }
+            }
+            Ok(None) => {}
+            Err(error) => {
+                eprintln!("PHP {}: {}", name, error);
+                failures += 1;
+            }
+        }
+    }
+
+    if failures > 0 {
+        return Err(format!("{} version(s) could not be synced", failures));
     }
     Ok(())
 }

@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::ini::{IniDocument, PHP_SECTION};
+use crate::settings::{ExtensionSettings, Settings};
 
 /// Extensions PHP loads with `zend_extension` instead of `extension`.
 const ZEND_EXTENSIONS: &[&str] = &["opcache", "xdebug"];
@@ -196,6 +197,98 @@ pub fn classify(
         ),
         built_in: names(loaded.iter().filter(|name| !available.contains(*name)).collect()),
     }
+}
+
+/// What applying the global settings to one PHP version did.
+#[derive(Debug, Default, PartialEq)]
+pub struct SyncReport {
+    pub enabled: Vec<String>,
+    pub disabled: Vec<String>,
+    /// Extensions that could not be applied here, with the reason.
+    pub skipped: Vec<(String, String)>,
+}
+
+impl SyncReport {
+    pub fn changed(&self) -> bool {
+        !self.enabled.is_empty() || !self.disabled.is_empty()
+    }
+
+    /// One line per kind of result, e.g. "enabled: intl, opcache".
+    pub fn describe(&self) -> Vec<String> {
+        let mut lines = Vec::new();
+        if !self.enabled.is_empty() {
+            lines.push(format!("enabled: {}", self.enabled.join(", ")));
+        }
+        if !self.disabled.is_empty() {
+            lines.push(format!("disabled: {}", self.disabled.join(", ")));
+        }
+        for (name, reason) in &self.skipped {
+            lines.push(format!("skipped {}: {}", name, reason));
+        }
+        lines
+    }
+}
+
+/// Make `ini` follow `settings`. An extension this PHP does not have is skipped, never an error,
+/// because the same settings are applied to every version.
+pub fn apply_settings(
+    ini: &mut IniDocument,
+    settings: &ExtensionSettings,
+    available: &BTreeSet<String>,
+    mut loaded: impl FnMut() -> Result<BTreeSet<String>, String>,
+) -> Result<SyncReport, String> {
+    let mut report = SyncReport::default();
+
+    for name in &settings.enable {
+        match enable(ini, name, available, &mut loaded)? {
+            Outcome::Changed => report.enabled.push(name.clone()),
+            Outcome::Unchanged | Outcome::BuiltIn => {}
+            Outcome::Unavailable => report
+                .skipped
+                .push((name.clone(), "not available in this PHP".to_string())),
+        }
+    }
+    for name in &settings.disable {
+        match disable(ini, name, available, &mut loaded)? {
+            Outcome::Changed => report.disabled.push(name.clone()),
+            // Nothing to switch off when this PHP does not have it.
+            Outcome::Unchanged | Outcome::Unavailable => {}
+            Outcome::BuiltIn => report
+                .skipped
+                .push((name.clone(), "built into this PHP, cannot be disabled".to_string())),
+        }
+    }
+    Ok(report)
+}
+
+/// Apply the saved global settings to the PHP in `version_directory` and save its php.ini
+/// if anything changed. None when there are no settings to apply.
+pub fn apply_global_settings(version_directory: &Path) -> Result<Option<SyncReport>, String> {
+    let settings = Settings::load()?;
+    if settings.extensions.is_empty() {
+        return Ok(None);
+    }
+
+    let ini_path = version_directory.join("php.ini");
+    let mut ini = IniDocument::load(&ini_path)
+        .map_err(|error| format!("reading {}: {}", ini_path.display(), error))?;
+    let available = available_shared(version_directory);
+
+    // `php -m` is slow enough to run at most once, and only if a built-in check needs it.
+    let mut modules: Option<BTreeSet<String>> = None;
+    let loaded = || {
+        if modules.is_none() {
+            modules = Some(loaded_modules(version_directory)?);
+        }
+        Ok(modules.clone().unwrap_or_default())
+    };
+
+    let report = apply_settings(&mut ini, &settings.extensions, &available, loaded)?;
+    if report.changed() {
+        ini.save(&ini_path)
+            .map_err(|error| format!("writing {}: {}", ini_path.display(), error))?;
+    }
+    Ok(Some(report))
 }
 
 /// Names joined with ", " and wrapped into lines no longer than `width`.

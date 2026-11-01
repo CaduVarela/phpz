@@ -7,6 +7,7 @@ mod interaction;
 mod link;
 mod paths;
 mod pipe;
+mod settings;
 mod shell;
 mod user_path;
 mod version;

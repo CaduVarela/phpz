@@ -164,3 +164,79 @@ fn names_wrap_without_exceeding_the_width() {
     assert!(lines.iter().all(|line| line.len() <= 14));
     assert!(wrap_names(&[], 80).is_empty());
 }
+
+fn settings(enable: &[&str], disable: &[&str]) -> ExtensionSettings {
+    ExtensionSettings {
+        enable: names(enable),
+        disable: names(disable),
+    }
+}
+
+#[test]
+fn settings_switch_extensions_on_and_off() {
+    let mut ini = IniDocument::parse(INI);
+    let report = apply_settings(&mut ini, &settings(&["bz2", "gmp"], &["curl"]), &available(), never_runs).unwrap();
+
+    assert_eq!(report.enabled, names(&["bz2", "gmp"]));
+    assert_eq!(report.disabled, names(&["curl"]));
+    assert!(report.skipped.is_empty());
+    assert_eq!(enabled_in_ini(&ini), set(&["bz2", "gmp"]));
+}
+
+#[test]
+fn applying_the_same_settings_twice_changes_nothing_the_second_time() {
+    let mut ini = IniDocument::parse(INI);
+    let wanted = settings(&["bz2"], &["curl"]);
+    apply_settings(&mut ini, &wanted, &available(), never_runs).unwrap();
+    let after_first = ini.render();
+
+    let report = apply_settings(&mut ini, &wanted, &available(), never_runs).unwrap();
+    assert!(!report.changed());
+    assert_eq!(ini.render(), after_first);
+}
+
+#[test]
+fn an_extension_this_php_lacks_is_skipped_not_an_error() {
+    let mut ini = IniDocument::parse(INI);
+    let report = apply_settings(&mut ini, &settings(&["swoole"], &["swoole"]), &available(), php_modules).unwrap();
+
+    assert_eq!(report.skipped, [("swoole".to_string(), "not available in this PHP".to_string())]);
+    assert!(!report.changed());
+    assert_eq!(ini.render(), INI);
+}
+
+#[test]
+fn a_built_in_extension_that_cannot_be_disabled_is_reported_and_enabling_it_is_silent() {
+    let mut ini = IniDocument::parse(INI);
+    let report = apply_settings(&mut ini, &settings(&["ctype"], &["date"]), &available(), php_modules).unwrap();
+
+    assert_eq!(report.skipped.len(), 1);
+    assert_eq!(report.skipped[0].0, "date");
+    assert!(report.skipped[0].1.contains("cannot be disabled"));
+}
+
+#[test]
+fn php_is_asked_for_its_modules_only_once() {
+    let mut ini = IniDocument::parse(INI);
+    let mut calls = 0;
+    let counting = || {
+        calls += 1;
+        php_modules()
+    };
+    apply_settings(&mut ini, &settings(&["ctype", "date", "xdebug"], &["core", "swoole"]), &available(), counting).unwrap();
+    assert!(calls >= 1);
+}
+
+#[test]
+fn the_report_describes_what_happened_in_plain_lines() {
+    let report = SyncReport {
+        enabled: names(&["intl", "opcache"]),
+        disabled: names(&["gd"]),
+        skipped: vec![("swoole".to_string(), "not available in this PHP".to_string())],
+    };
+    assert_eq!(
+        report.describe(),
+        ["enabled: intl, opcache", "disabled: gd", "skipped swoole: not available in this PHP"]
+    );
+    assert!(SyncReport::default().describe().is_empty());
+}

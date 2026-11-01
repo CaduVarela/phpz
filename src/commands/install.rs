@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::version::Build;
-use crate::{interaction, paths, shell, version};
+use crate::{extensions, interaction, paths, shell, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -54,6 +54,7 @@ fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String
 
     println!("Installing PHP {}", resolved_version);
     let result = populate(&build, &temporary_directory).and_then(|_| {
+        apply_global_extension_settings(&temporary_directory);
         fs::rename(&temporary_directory, &final_directory)
             .map_err(|error| format!("finalizing installation: {}", error))
     });
@@ -66,6 +67,20 @@ fn install(requested_version: &str, allow_unverified: bool) -> Result<(), String
     println!("Successfully installed PHP {}", resolved_version);
     shell::offer_setup();
     Ok(())
+}
+
+/// Best effort: a problem with the saved settings must never fail an install.
+fn apply_global_extension_settings(directory: &Path) {
+    match extensions::apply_global_settings(directory) {
+        Ok(Some(report)) if !report.describe().is_empty() => {
+            println!("Applied your global extension settings:");
+            for line in report.describe() {
+                println!("  {}", line);
+            }
+        }
+        Ok(_) => {}
+        Err(error) => eprintln!("Note: could not apply your global extension settings: {}", error),
+    }
 }
 
 /// What to do about a build whose checksum is missing.
