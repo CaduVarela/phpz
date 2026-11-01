@@ -269,3 +269,29 @@ fn a_new_gd_line_uses_the_gd2_spelling_when_the_ini_does() {
     let modern = IniDocument::parse("[PHP]\nextension=curl\n");
     assert_eq!(entry_value(&modern, "gd"), "gd");
 }
+
+#[test]
+fn missing_extensions_are_the_wanted_ones_neither_shared_nor_built_in() {
+    let wanted = names(&["curl", "ctype", "xdebug", "redis"]);
+    let missing = missing_extensions(&wanted, &available(), php_modules).unwrap();
+    assert_eq!(missing, names(&["xdebug", "redis"]));
+}
+
+#[test]
+fn php_is_not_asked_when_everything_wanted_is_shared() {
+    let wanted = names(&["curl", "bz2"]);
+    assert!(missing_extensions(&wanted, &available(), never_runs).unwrap().is_empty());
+    assert!(missing_extensions(&[], &available(), never_runs).unwrap().is_empty());
+}
+
+#[test]
+fn only_the_not_available_skips_suggest_a_download() {
+    let mut report = SyncReport::default();
+    assert!(!report.has_unavailable());
+
+    report.skipped.push(("date".to_string(), "built into this PHP, cannot be disabled".to_string()));
+    assert!(!report.has_unavailable());
+
+    report.skipped.push(("xdebug".to_string(), NOT_AVAILABLE.to_string()));
+    assert!(report.has_unavailable());
+}

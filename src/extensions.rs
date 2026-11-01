@@ -203,6 +203,24 @@ pub fn classify(
     }
 }
 
+/// Why an extension was skipped because the version does not have it.
+pub const NOT_AVAILABLE: &str = "not available in this PHP";
+
+/// Of the wanted `names`, those this PHP has neither as a shared extension nor built in.
+/// `loaded` only runs when some name is not a shared extension.
+pub fn missing_extensions(
+    names: &[String],
+    available: &BTreeSet<String>,
+    loaded: impl FnOnce() -> Result<BTreeSet<String>, String>,
+) -> Result<Vec<String>, String> {
+    let not_shared: Vec<&String> = names.iter().filter(|name| !available.contains(*name)).collect();
+    if not_shared.is_empty() {
+        return Ok(Vec::new());
+    }
+    let loaded = loaded()?;
+    Ok(not_shared.into_iter().filter(|name| !loaded.contains(*name)).cloned().collect())
+}
+
 /// What applying the global settings to one PHP version did.
 #[derive(Debug, Default, PartialEq)]
 pub struct SyncReport {
@@ -213,6 +231,11 @@ pub struct SyncReport {
 }
 
 impl SyncReport {
+    /// Something was skipped only because the extension is not installed in this PHP.
+    pub fn has_unavailable(&self) -> bool {
+        self.skipped.iter().any(|(_, reason)| reason == NOT_AVAILABLE)
+    }
+
     pub fn changed(&self) -> bool {
         !self.enabled.is_empty() || !self.disabled.is_empty()
     }
@@ -247,9 +270,7 @@ pub fn apply_settings(
         match enable(ini, name, available, &mut loaded)? {
             Outcome::Changed => report.enabled.push(name.clone()),
             Outcome::Unchanged | Outcome::BuiltIn => {}
-            Outcome::Unavailable => report
-                .skipped
-                .push((name.clone(), "not available in this PHP".to_string())),
+            Outcome::Unavailable => report.skipped.push((name.clone(), NOT_AVAILABLE.to_string())),
         }
     }
     for name in &settings.disable {

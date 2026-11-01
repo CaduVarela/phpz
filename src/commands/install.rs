@@ -76,6 +76,9 @@ fn apply_global_extension_settings(directory: &Path) {
             for line in report.describe() {
                 println!("  {}", line);
             }
+            if report.has_unavailable() && cfg!(windows) {
+                println!("  Run 'phpz ext sync --install' to download the missing ones.");
+            }
         }
         Ok(_) => {}
         Err(error) => eprintln!("Note: could not apply your global extension settings: {}", error),
