@@ -156,3 +156,9 @@ fn a_package_without_the_dll_is_refused() {
         .unwrap_err()
         .contains("does not contain php_xdebug.dll"));
 }
+
+#[test]
+fn rest_listing_gives_stable_versions_newest_first() {
+    let xml = "<a><r><v>3.10.0</v><s>stable</s></r><r><v>3.11.0beta1</v><s>beta</s></r><r><v>3.9.0</v><s>stable</s></r></a>";
+    assert_eq!(stable_versions_from_rest(xml), vec!["3.10.0", "3.9.0"]);
+}
