@@ -174,6 +174,24 @@ Choosing a version per folder has to happen when `php` runs, because the answer 
 
 ---
 
+## Builds on Linux and macOS
+
+static-php-cli publishes several builds, and the extensions a version has are fixed by the build, since they are compiled in. Choosing the build is therefore how extensions are chosen on these systems (`src/variant.rs`).
+
+- *The builds.* `minimal` (8 extensions), `common` (38, the default), `bulk` (57) and `gnu-bulk` (the same 57, built dynamically against glibc 2.17). The enum is declared smallest download first, so its derived order is the size order. The lists are not hard-coded: they come from each build's `build-extensions.json` when needed, and `phpz variants` also reads the size of the newest build from the index.
+- *They are not nested.* `bulk` has `intl` and `opcache` but lacks `pdo_sqlite` and `pdo_pgsql`, which `common` has. So a switch can lose extensions, and every place that offers one computes and shows that (`lost_by_switching`) before asking.
+- *The build is recorded.* `.phpz-variant` in a version directory names it; a missing or unreadable file means `common`, which is what every version installed before this existed is. `list` shows it in brackets when it is not the default.
+- *When a larger build is offered, and always as a question with default no:*
+  - `install` with no `--variant`, in a terminal, when the global extension settings enable something `common` lacks and one build has all of it (`smallest_covering`). If no single build has everything, nothing is offered.
+  - `ext enable <name>` for an extension the version's build lacks. The first build that has it, smallest first, is offered, but only if that exact PHP version is published in it (`gnu-bulk` starts at 8.1.33). Without a terminal it prints the command to run instead.
+  - Never as a default, and never in a script.
+- *Switching* (`install --variant X --replace`): the new build is laid out in a temporary directory, the old `php.ini` and `conf.d` files are copied over its defaults, the global extension settings are applied, then the directories are swapped with the old one set aside as `<version>.old` and put back if the move fails. Leftover `.tmp` and `.old` directories are never listed as versions. The first-install PATH question is not asked after a switch.
+- *`gnu-bulk` requirements.* Linux only, and not on musl (Alpine): `variant::runs_here` checks for `/lib/ld-musl-*` and refuses with a reason. `phpz variants` shows the reason instead of hiding the build.
+- *Windows* has one official build per version, so `--variant` is an error there and `phpz variants` says so.
+- *What this does not give.* `gnu-bulk` can load shared extensions, but phpz has no source of `.so` files, so `xdebug` and the others that are in no build stay unavailable on Linux and macOS.
+
+---
+
 ## php.ini Management
 
 Each version has its own `php.ini` under `versions/<version>/`. A default is written at install time and users are free to edit it.
@@ -252,6 +270,7 @@ src/
   installed.rs       installed versions and the default version
   project.rs         finding and reading .php-version and .phpz.toml
   project_ini.rs     the php.ini generated for a project's extension choices
+  variant.rs         the static-php builds, their recorded choice, which one covers an extension set
   shim.rs            the php shim: starts the right version, keeps the link or copy fresh
   selection.rs       the version that applies in a directory, and where it comes from
   link.rs            symlink (Unix) or junction (Windows) for `current`
@@ -296,7 +315,6 @@ Closing the output pipe early (`phpz list --remote | head -1`) used to end in a 
 - Download integrity verification with pinned checksums on Linux and macOS, and for the older Windows patches that publish none.
 - Extensions that come with extra libraries (imagick), by copying the libraries without ever overwriting an existing file.
 - Extensions that do not ship with PHP on Linux and macOS.
-- On Linux and macOS, an on-demand larger build that can load `.so` extensions, offered after asking (see the research notes).
 - `php.ini` profiles and templates (dev, prod, testing).
 - Global configuration shared across versions.
 - Integration with Docker images for reproducibility.
