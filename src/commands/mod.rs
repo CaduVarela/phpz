@@ -33,9 +33,18 @@ pub enum Commands {
         #[arg(long, value_parser = Variant::parse_argument)]
         variant: Option<Variant>,
 
-        /// Switch an installed version to the build given by --variant, keeping its php.ini
-        #[arg(long, requires = "variant")]
+        /// Switch an installed version to the build given by --variant (or --build), keeping its php.ini
+        #[arg(long)]
         replace: bool,
+
+        /// Linux: compile the version from the official source at php.net instead of downloading a
+        /// prebuilt one. Gives the newest patch releases and extensions that can be switched.
+        #[arg(long, conflicts_with = "variant")]
+        build: bool,
+
+        /// With --build, how many compile jobs to run (default: one per core)
+        #[arg(long, requires = "build")]
+        jobs: Option<usize>,
     },
     /// Remove an installed version (exact version, as shown by 'phpz list')
     Uninstall { version: String },
@@ -97,7 +106,7 @@ pub enum Commands {
 impl Commands {
     pub fn run(self) {
         match self {
-            Commands::Install { version, allow_unverified, variant, replace } => install::run(version, allow_unverified, variant, replace),
+            Commands::Install { version, allow_unverified, variant, replace, build, jobs } => install::run(version, allow_unverified, variant, replace, build, jobs),
             Commands::Uninstall { version } => uninstall::run(version),
             Commands::Use { version } => use_cmd::run(version),
             Commands::List { remote: true, all, variant } => list_remote::run(all, variant),

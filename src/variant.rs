@@ -83,13 +83,35 @@ pub fn runs_here(variant: Variant) -> Result<(), String> {
     runs_on(variant, std::env::consts::OS, is_musl())
 }
 
-/// The build a version directory came from. Versions installed before builds were recorded, and
-/// anything unreadable, count as the default.
-pub fn read(version_directory: &Path) -> Variant {
-    fs::read_to_string(version_directory.join(FILE_NAME))
-        .ok()
-        .and_then(|text| Variant::parse(&text))
-        .unwrap_or(DEFAULT)
+/// Where a version came from: one of the prebuilt static builds, or compiled here from the source.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    Prebuilt(Variant),
+    Source,
+}
+
+impl Origin {
+    pub fn name(self) -> &'static str {
+        match self {
+            Origin::Prebuilt(variant) => variant.name(),
+            Origin::Source => "source",
+        }
+    }
+}
+
+/// Where a version directory came from. A missing or unreadable record means the default prebuilt
+/// build, which is what every version installed before builds were recorded is.
+pub fn read_origin(version_directory: &Path) -> Origin {
+    match fs::read_to_string(version_directory.join(FILE_NAME)) {
+        Ok(text) if text.trim() == "source" => Origin::Source,
+        Ok(text) => Origin::Prebuilt(Variant::parse(&text).unwrap_or(DEFAULT)),
+        Err(_) => Origin::Prebuilt(DEFAULT),
+    }
+}
+
+pub fn write_source(version_directory: &Path) -> Result<(), String> {
+    let path = version_directory.join(FILE_NAME);
+    fs::write(&path, "source\n").map_err(|error| format!("writing {}: {}", path.display(), error))
 }
 
 pub fn write(version_directory: &Path, variant: Variant) -> Result<(), String> {

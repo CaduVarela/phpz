@@ -38,16 +38,16 @@ fn only_gnu_bulk_has_system_requirements() {
 fn a_version_remembers_its_build() {
     let directory = tempfile::tempdir().unwrap();
     write(directory.path(), Variant::GnuBulk).unwrap();
-    assert_eq!(read(directory.path()), Variant::GnuBulk);
+    assert_eq!(read_origin(directory.path()), Origin::Prebuilt(Variant::GnuBulk));
     assert_eq!(fs::read_to_string(directory.path().join(".phpz-variant")).unwrap(), "gnu-bulk\n");
 }
 
 #[test]
 fn a_version_without_a_record_or_with_a_broken_one_counts_as_the_default() {
     let directory = tempfile::tempdir().unwrap();
-    assert_eq!(read(directory.path()), DEFAULT);
+    assert_eq!(read_origin(directory.path()), Origin::Prebuilt(DEFAULT));
     fs::write(directory.path().join(".phpz-variant"), "banana").unwrap();
-    assert_eq!(read(directory.path()), DEFAULT);
+    assert_eq!(read_origin(directory.path()), Origin::Prebuilt(DEFAULT));
 }
 
 #[test]
@@ -85,4 +85,23 @@ fn switching_loses_what_the_target_lacks() {
     let bulk = set(&["curl", "redis", "intl"]);
     assert_eq!(lost_by_switching(&common, &bulk), ["pdo_pgsql", "pdo_sqlite"]);
     assert!(lost_by_switching(&bulk, &bulk).is_empty());
+}
+
+#[test]
+fn a_version_built_here_is_recorded_as_such() {
+    let directory = tempfile::tempdir().unwrap();
+    write_source(directory.path()).unwrap();
+    assert_eq!(read_origin(directory.path()), Origin::Source);
+    assert_eq!(Origin::Source.name(), "source");
+}
+
+#[test]
+fn a_prebuilt_version_reads_back_as_its_variant_and_unknown_records_as_the_default() {
+    let directory = tempfile::tempdir().unwrap();
+    assert_eq!(read_origin(directory.path()), Origin::Prebuilt(DEFAULT));
+    write(directory.path(), Variant::Bulk).unwrap();
+    assert_eq!(read_origin(directory.path()), Origin::Prebuilt(Variant::Bulk));
+    assert_eq!(Origin::Prebuilt(Variant::Bulk).name(), "bulk");
+    fs::write(directory.path().join(".phpz-variant"), "banana").unwrap();
+    assert_eq!(read_origin(directory.path()), Origin::Prebuilt(DEFAULT));
 }

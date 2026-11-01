@@ -1,6 +1,6 @@
 use crate::installed;
 use crate::selection::{self, Origin, Selection};
-use crate::variant::{self, Variant};
+use crate::variant::{self, Origin as BuildOrigin};
 use crate::paths;
 
 /// List installed versions, marking the one that applies here and the default
@@ -29,7 +29,7 @@ fn list() -> Result<(), String> {
     let versions_directory = paths::versions_directory()?;
     for version in &versions {
         // Windows has one build, so there is nothing to tell apart there.
-        let build = if cfg!(windows) { None } else { Some(variant::read(&versions_directory.join(version))) };
+        let build = if cfg!(windows) { None } else { Some(variant::read_origin(&versions_directory.join(version))) };
         println!("{}", label(version, effective.as_ref(), global.as_deref(), build));
     }
     if let Some(problem) = problem {
@@ -39,10 +39,10 @@ fn list() -> Result<(), String> {
 }
 
 /// One line of the list: "* 8.2.35 (active, set by ...)", "  8.4.27 (default)" or "  8.3.32".
-fn label(version: &str, effective: Option<&Selection>, global: Option<&str>, build: Option<Variant>) -> String {
+fn label(version: &str, effective: Option<&Selection>, global: Option<&str>, build: Option<BuildOrigin>) -> String {
     let line = base_label(version, effective, global);
     match build {
-        Some(build) if build != variant::DEFAULT => format!("{} [{}]", line, build.name()),
+        Some(build) if build != BuildOrigin::Prebuilt(variant::DEFAULT) => format!("{} [{}]", line, build.name()),
         _ => line,
     }
 }
