@@ -2,7 +2,7 @@ use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
-use crate::paths;
+use crate::{paths, user_path};
 
 const BLOCK_START: &str = "# >>> phpz >>>";
 const BLOCK_END: &str = "# <<< phpz <<<";
@@ -44,11 +44,21 @@ impl Shell {
 pub enum SetupTarget {
     /// A line block in the profile file of a Unix shell.
     Profile(Shell),
+    /// The user PATH stored in the Windows registry.
+    WindowsUserPath,
 }
 
 impl SetupTarget {
     pub fn detect() -> Option<SetupTarget> {
+        if cfg!(windows) {
+            return Some(SetupTarget::WindowsUserPath);
+        }
         Shell::detect().map(SetupTarget::Profile)
+    }
+
+    /// The directory that has to be on PATH (Windows only).
+    fn windows_entry() -> Result<String, String> {
+        Ok(paths::active_bin_directory()?.to_string_lossy().into_owned())
     }
 
     /// Short name used in messages, e.g. "~/.bashrc".
@@ -58,6 +68,7 @@ impl SetupTarget {
                 .profile_path()
                 .map(|path| tilde_path(&path))
                 .unwrap_or_else(|_| "your shell profile".to_string()),
+            SetupTarget::WindowsUserPath => "your user PATH".to_string(),
         }
     }
 
@@ -67,6 +78,9 @@ impl SetupTarget {
                 .profile_path()
                 .and_then(|path| fs::read_to_string(path).map_err(|error| error.to_string()))
                 .map(|content| content.contains(BLOCK_START))
+                .unwrap_or(false),
+            SetupTarget::WindowsUserPath => Self::windows_entry()
+                .map(|entry| user_path::is_configured(&entry))
                 .unwrap_or(false),
         }
     }
@@ -81,6 +95,7 @@ impl SetupTarget {
                     None => Ok(false),
                 }
             }
+            SetupTarget::WindowsUserPath => user_path::configure(&Self::windows_entry()?),
         }
     }
 
@@ -94,6 +109,7 @@ impl SetupTarget {
                     None => Ok(false),
                 }
             }
+            SetupTarget::WindowsUserPath => user_path::unconfigure(&Self::windows_entry()?),
         }
     }
 
@@ -103,6 +119,13 @@ impl SetupTarget {
             SetupTarget::Profile(_) => {
                 format!("Open a new terminal or run: source {}", self.description())
             }
+            SetupTarget::WindowsUserPath => match Self::windows_entry() {
+                Ok(entry) => format!(
+                    "Open a new terminal or run: $env:Path = \"{};\" + $env:Path",
+                    entry
+                ),
+                Err(_) => "Open a new terminal to apply it.".to_string(),
+            },
         }
     }
 }

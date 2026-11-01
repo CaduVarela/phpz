@@ -6,6 +6,7 @@ mod link;
 mod paths;
 mod pipe;
 mod shell;
+mod user_path;
 mod version;
 
 use clap::Parser;
