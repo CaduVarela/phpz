@@ -137,8 +137,9 @@ fn populate(build: &Build, directory: &Path) -> Result<(), String> {
 }
 
 /// Extensions enabled by default in the Windows php.ini, when the build ships them.
+/// "gd2" is how PHP 7.0 to 7.3 name GD; only the spelling the template has gets activated.
 const WINDOWS_DEFAULT_EXTENSIONS: &[&str] = &[
-    "bz2", "curl", "exif", "fileinfo", "gd", "gmp", "intl", "mbstring", "mysqli", "openssl",
+    "bz2", "curl", "exif", "fileinfo", "gd", "gd2", "gmp", "intl", "mbstring", "mysqli", "openssl",
     "pdo_mysql", "pdo_pgsql", "pdo_sqlite", "pgsql", "sockets", "sodium", "sqlite3", "zip",
 ];
 

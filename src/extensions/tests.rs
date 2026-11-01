@@ -240,3 +240,32 @@ fn the_report_describes_what_happened_in_plain_lines() {
     );
     assert!(SyncReport::default().describe().is_empty());
 }
+
+#[test]
+fn gd2_is_the_same_extension_as_gd() {
+    assert_eq!(extension_name("gd2"), "gd");
+    assert_eq!(extension_name("php_gd2.dll"), "gd");
+    assert_eq!(extension_name("gd"), "gd");
+}
+
+#[test]
+fn gd_is_enabled_through_the_gd2_line_of_old_templates() {
+    for template in ["[PHP]\n;extension=gd2\n", "[PHP]\n;extension=php_gd2.dll\nextension=php_curl.dll\n"] {
+        let mut ini = IniDocument::parse(template);
+        let outcome = enable(&mut ini, "gd", &set(&["gd", "curl"]), never_runs).unwrap();
+        assert_eq!(outcome, Outcome::Changed, "{}", template);
+        assert!(enabled_in_ini(&ini).contains("gd"), "{}", template);
+        assert!(!ini.render().contains(";extension"), "{}", template);
+    }
+}
+
+#[test]
+fn a_new_gd_line_uses_the_gd2_spelling_when_the_ini_does() {
+    let mut ini = IniDocument::parse("[PHP]\nextension=php_curl.dll\n;extension=php_gd2.dll\n");
+    ini.comment_out_entries(PHP_SECTION, "extension", |value| value == "php_gd2.dll");
+    assert_eq!(entry_value(&ini, "gd"), "php_gd2.dll");
+    assert_eq!(entry_value(&ini, "curl"), "php_curl.dll");
+
+    let modern = IniDocument::parse("[PHP]\nextension=curl\n");
+    assert_eq!(entry_value(&modern, "gd"), "gd");
+}

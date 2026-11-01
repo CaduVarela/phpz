@@ -155,3 +155,19 @@ fn dll_style_lines_with_trailing_comments_are_enabled() {
         "extension=php_exif.dll      ; Must be after mbstring\n"
     );
 }
+
+#[test]
+fn the_default_set_activates_gd_under_its_old_name_too() {
+    assert!(windows_directives(true).contains(&"extension=php_gd2.dll".to_string()));
+    assert!(windows_directives(false).contains(&"extension=gd2".to_string()));
+    assert!(windows_directives(false).contains(&"extension=gd".to_string()));
+}
+
+#[test]
+fn old_template_with_gd2_gets_gd_activated_and_nothing_else_changes() {
+    let template = ";extension=gd2\n;extension=ldap\n";
+    assert_eq!(
+        uncomment_directives(template, &windows_directives(false)),
+        "extension=gd2\n;extension=ldap\n"
+    );
+}

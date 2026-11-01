@@ -10,15 +10,19 @@ use crate::settings::{ExtensionSettings, Settings};
 const ZEND_EXTENSIONS: &[&str] = &["opcache", "xdebug"];
 
 /// "php_curl.dll", "C:\php\ext\php_curl.dll", "curl.so" and "curl" are all the extension "curl".
+/// PHP 7.0 to 7.3 call GD "gd2" in php.ini and ship php_gd2.dll, so "gd2" is "gd".
 pub fn extension_name(value: &str) -> String {
     let file = value.trim().trim_matches('"').rsplit(['/', '\\']).next().unwrap_or("");
     let lower = file.to_lowercase();
     let without_prefix = lower.strip_prefix("php_").unwrap_or(&lower);
-    without_prefix
+    let stem = without_prefix
         .strip_suffix(".dll")
         .or_else(|| without_prefix.strip_suffix(".so"))
-        .unwrap_or(without_prefix)
-        .to_string()
+        .unwrap_or(without_prefix);
+    match stem {
+        "gd2" => "gd".to_string(),
+        other => other.to_string(),
+    }
 }
 
 fn key_for(name: &str) -> &'static str {
@@ -100,16 +104,16 @@ pub enum Outcome {
     Unavailable,
 }
 
-/// PHP 7.0 and 7.1 name extensions by DLL ("extension=php_curl.dll"); later versions use short names.
-fn uses_dll_names(ini: &IniDocument) -> bool {
-    ini.render().contains("extension=php_")
-}
-
+/// How a new php.ini line spells an extension. PHP 7.0 and 7.1 name extensions by DLL
+/// ("extension=php_curl.dll"), later versions use short names, and PHP 7.0 to 7.3 call GD "gd2".
 fn entry_value(ini: &IniDocument, name: &str) -> String {
-    if uses_dll_names(ini) {
-        format!("php_{}.dll", name)
+    let text = ini.render();
+    let token = if name == "gd" && text.contains("gd2") { "gd2" } else { name };
+
+    if text.contains("extension=php_") {
+        format!("php_{}.dll", token)
     } else {
-        name.to_string()
+        token.to_string()
     }
 }
 
