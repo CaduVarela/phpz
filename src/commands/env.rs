@@ -5,7 +5,7 @@ use crate::paths;
 /// Print shell code that puts the active version first on PATH.
 /// Usage: eval "$(phpz env)", or in PowerShell: phpz env | Invoke-Expression
 pub fn run() {
-    match paths::active_bin_directory() {
+    match paths::shims_directory() {
         Ok(directory) => println!("{}", path_line(&directory, cfg!(windows))),
         Err(error) => {
             eprintln!("Error: {}", error);
