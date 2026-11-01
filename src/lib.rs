@@ -6,6 +6,7 @@ pub mod extensions;
 pub mod php;
 pub mod platform;
 pub mod project;
+pub mod release;
 
 #[derive(Parser)]
 #[command(
