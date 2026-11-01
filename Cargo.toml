@@ -27,3 +27,6 @@ tempfile = "3"
 
 [target."cfg(windows)".dependencies]
 junction = "2.1.0"
+
+[target."cfg(unix)".dependencies]
+libc = "0.2.191"

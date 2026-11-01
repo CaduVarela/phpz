@@ -4,6 +4,7 @@ mod ini;
 mod installed;
 mod link;
 mod paths;
+mod pipe;
 mod shell;
 mod version;
 
@@ -22,6 +23,7 @@ struct Cli {
 }
 
 fn main() {
+    pipe::exit_quietly_on_closed_pipe();
     let cli = Cli::parse();
     cli.command.run();
 }
