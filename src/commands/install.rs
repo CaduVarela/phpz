@@ -255,19 +255,9 @@ fn install(
             variant.name()
         );
     }
-    let result = populate(&build, &temporary_directory).and_then(|_| {
-        if replacing {
-            carry_over_configuration(&final_directory, &temporary_directory)?;
-        }
-        apply_global_extension_settings(&temporary_directory);
-        if replacing {
-            let backup = versions_directory.join(format!("{}.old", resolved_version));
-            swap_in(&temporary_directory, &final_directory, &backup)
-        } else {
-            fs::rename(&temporary_directory, &final_directory)
-                .map_err(|error| format!("finalizing installation: {}", error))
-        }
-    });
+    let backup = versions_directory.join(format!("{}.old", resolved_version));
+    let result = populate(&build, &temporary_directory)
+        .and_then(|_| put_in_place(&temporary_directory, &final_directory, &backup, replacing));
 
     if let Err(error) = result {
         let _ = fs::remove_dir_all(&temporary_directory);
@@ -281,6 +271,72 @@ fn install(
         shell::offer_setup();
     }
     Ok(())
+}
+
+/// Check for the compiler tools; says whether pkg-config is there to find the libraries.
+fn require_build_tools() -> Result<bool, String> {
+    let missing = source_build::missing_tools(source_build::tool_exists);
+    if !missing.is_empty() {
+        let names: Vec<&str> = missing.iter().map(|(name, _)| *name).collect();
+        return Err(format!(
+            "building PHP needs {}. On Debian or Ubuntu: sudo apt install build-essential",
+            names.join(" and ")
+        ));
+    }
+    let has_pkg_config = source_build::tool_exists("pkg-config");
+    if !has_pkg_config {
+        println!("Note: pkg-config was not found, so only the extensions that need no library will be built.");
+    }
+    Ok(has_pkg_config)
+}
+
+/// Say what will be compiled in, what becomes a loadable file and what is left out.
+fn announce_plan(version: &str, plan: &source_build::Plan) {
+    println!("Compiling PHP {} from the official source", version);
+    println!("  compiled in: {}", plan.built_in.join(", "));
+    println!(
+        "  as files   : {} (switch them with 'phpz ext enable|disable')",
+        plan.shared.join(", ")
+    );
+    for skipped in &plan.skipped {
+        println!(
+            "  left out   : {} (on Debian or Ubuntu: sudo apt install {})",
+            skipped.name, skipped.hint
+        );
+    }
+}
+
+/// Failed builds keep only the log: the source tree is large and the log is what is worth reading.
+fn discard_build_leftovers(work_directory: &Path) {
+    for leftover in [
+        "src",
+        "staging",
+        "gnupg",
+        "php.tar.gz",
+        "php-keyring.gpg",
+        "signature.asc",
+    ] {
+        let _ = fs::remove_dir_all(work_directory.join(leftover));
+    }
+}
+
+/// Finish an install: keep the old settings when replacing, apply the global ones, move into place.
+fn put_in_place(
+    staged: &Path,
+    final_directory: &Path,
+    backup: &Path,
+    replacing: bool,
+) -> Result<(), String> {
+    if replacing {
+        carry_over_configuration(final_directory, staged)?;
+    }
+    apply_global_extension_settings(staged);
+    if replacing {
+        swap_in(staged, final_directory, backup)
+    } else {
+        fs::rename(staged, final_directory)
+            .map_err(|error| format!("finalizing installation: {}", error))
+    }
 }
 
 /// Compile a version from the official source at php.net, verifying SHA-256 and signature.
@@ -332,18 +388,7 @@ fn install_from_source(
         false
     };
 
-    let missing = source_build::missing_tools(source_build::tool_exists);
-    if !missing.is_empty() {
-        let names: Vec<&str> = missing.iter().map(|(name, _)| *name).collect();
-        return Err(format!(
-            "building PHP needs {}. On Debian or Ubuntu: sudo apt install build-essential",
-            names.join(" and ")
-        ));
-    }
-    let has_pkg_config = source_build::tool_exists("pkg-config");
-    if !has_pkg_config {
-        println!("Note: pkg-config was not found, so only the extensions that need no library will be built.");
-    }
+    let has_pkg_config = require_build_tools()?;
     let plan = source_build::plan(release.series(), |package| {
         has_pkg_config && source_build::pkg_config_has(package)
     });
@@ -353,18 +398,7 @@ fn install_from_source(
         );
     }
 
-    println!("Compiling PHP {} from the official source", release.version);
-    println!("  compiled in: {}", plan.built_in.join(", "));
-    println!(
-        "  as files   : {} (switch them with 'phpz ext enable|disable')",
-        plan.shared.join(", ")
-    );
-    for skipped in &plan.skipped {
-        println!(
-            "  left out   : {} (on Debian or Ubuntu: sudo apt install {})",
-            skipped.name, skipped.hint
-        );
-    }
+    announce_plan(&release.version, &plan);
 
     let work_directory = paths::phpz_home()?.join("build").join(&release.version);
     let _ = fs::remove_dir_all(&work_directory);
@@ -393,20 +427,8 @@ fn install_from_source(
         let _ = fs::remove_dir_all(&temporary_directory);
         fs::rename(&tree, &temporary_directory)
             .map_err(|error| format!("moving the build into place: {}", error))?;
-        if replacing {
-            carry_over_configuration(&final_directory, &temporary_directory)?;
-        }
-        apply_global_extension_settings(&temporary_directory);
-        if replacing {
-            swap_in(
-                &temporary_directory,
-                &final_directory,
-                &versions_directory.join(format!("{}.old", release.version)),
-            )
-        } else {
-            fs::rename(&temporary_directory, &final_directory)
-                .map_err(|error| format!("finalizing installation: {}", error))
-        }
+        let backup = versions_directory.join(format!("{}.old", release.version));
+        put_in_place(&temporary_directory, &final_directory, &backup, replacing)
     });
 
     match result {
@@ -414,17 +436,7 @@ fn install_from_source(
             let _ = fs::remove_dir_all(&work_directory);
         }
         Err(error) => {
-            // The source tree is large; the log is what is worth keeping.
-            for leftover in [
-                "src",
-                "staging",
-                "gnupg",
-                "php.tar.gz",
-                "php-keyring.gpg",
-                "signature.asc",
-            ] {
-                let _ = fs::remove_dir_all(work_directory.join(leftover));
-            }
+            discard_build_leftovers(&work_directory);
             let _ = fs::remove_dir_all(&temporary_directory);
             return Err(error);
         }
