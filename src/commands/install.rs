@@ -1,13 +1,12 @@
 use std::fs::{self, File};
-use std::io::{self, Read, Write};
+use std::io;
 use std::path::Path;
 
 use flate2::read::GzDecoder;
-use sha2::{Digest, Sha256};
 use tar::Archive;
 
 use crate::version::Build;
-use crate::{extensions, interaction, paths, shell, version};
+use crate::{download, extensions, interaction, paths, shell, version};
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -148,7 +147,8 @@ const WINDOWS_DEFAULT_EXTENSIONS: &[&str] = &[
 ///   php.ini               php.ini-development with extension_dir and common extensions enabled
 fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.zip");
-    download(&build.url, &archive_path, build.sha256.as_deref())?;
+    download::fetch(&build.url, &archive_path, build.sha256.as_deref())?;
+    download::announce_checksum(build.sha256.is_some());
     extract_zip(&archive_path, directory)?;
     let _ = fs::remove_file(&archive_path);
 
@@ -241,7 +241,8 @@ fn extract_zip(archive_path: &Path, destination: &Path) -> Result<(), String> {
 ///   conf.d/       additional ini files
 fn lay_out_static_build(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.tar.gz");
-    download(&build.url, &archive_path, build.sha256.as_deref())?;
+    download::fetch(&build.url, &archive_path, build.sha256.as_deref())?;
+    download::announce_checksum(build.sha256.is_some());
 
     let libexec_directory = directory.join("libexec");
     fs::create_dir_all(&libexec_directory).map_err(|error| error.to_string())?;
@@ -256,72 +257,6 @@ fn lay_out_static_build(build: &Build, directory: &Path) -> Result<(), String> {
         .map_err(|error| format!("writing php.ini: {}", error))?;
     fs::create_dir_all(directory.join("conf.d")).map_err(|error| error.to_string())?;
     Ok(())
-}
-
-/// Download `url` to `destination`, checking the SHA-256 when one is known.
-fn download(url: &str, destination: &Path, expected_sha256: Option<&str>) -> Result<(), String> {
-    println!("Downloading {}", url);
-    let mut response = reqwest::blocking::get(url)
-        .and_then(|response| response.error_for_status())
-        .map_err(|error| format!("download failed: {}", error))?;
-
-    let total_bytes = response.content_length();
-    let mut file = File::create(destination)
-        .map_err(|error| format!("creating {}: {}", destination.display(), error))?;
-    let mut buffer = [0u8; 64 * 1024];
-    let mut downloaded_bytes: u64 = 0;
-    let mut hasher = Sha256::new();
-
-    loop {
-        let bytes_read = response
-            .read(&mut buffer)
-            .map_err(|error| format!("download failed: {}", error))?;
-        if bytes_read == 0 {
-            break;
-        }
-        file.write_all(&buffer[..bytes_read])
-            .map_err(|error| error.to_string())?;
-        hasher.update(&buffer[..bytes_read]);
-        downloaded_bytes += bytes_read as u64;
-
-        let megabytes = downloaded_bytes as f64 / 1e6;
-        match total_bytes {
-            Some(total) if total > 0 => {
-                eprint!("\r  {:>3}% ({:.1} MB)", downloaded_bytes * 100 / total, megabytes)
-            }
-            _ => eprint!("\r  {:.1} MB", megabytes),
-        }
-    }
-    eprintln!();
-
-    if let Some(total) = total_bytes {
-        if downloaded_bytes != total {
-            return Err(format!(
-                "incomplete download ({} of {} bytes)",
-                downloaded_bytes, total
-            ));
-        }
-    }
-
-    match expected_sha256 {
-        Some(expected) => {
-            check_sha256(&format!("{:x}", hasher.finalize()), expected)?;
-            println!("Verified SHA-256 checksum");
-        }
-        None => println!("Note: no checksum is published for this build, so it was not verified."),
-    }
-    Ok(())
-}
-
-fn check_sha256(actual: &str, expected: &str) -> Result<(), String> {
-    if actual.eq_ignore_ascii_case(expected) {
-        Ok(())
-    } else {
-        Err(format!(
-            "checksum mismatch (expected {}, got {}). The download was discarded.",
-            expected, actual
-        ))
-    }
 }
 
 /// Extract the `php` executable from the archive to `destination`.

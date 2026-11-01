@@ -1,4 +1,5 @@
 mod commands;
+mod download;
 mod environment;
 mod extensions;
 mod ini;
