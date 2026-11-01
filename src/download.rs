@@ -37,7 +37,7 @@ pub fn fetch(
         hasher.update(&buffer[..bytes_read]);
         downloaded_bytes += bytes_read as u64;
 
-        let tenths = downloaded_bytes / 100_000;
+        let tenths = (downloaded_bytes + 50_000) / 100_000;
         let megabytes = format!("{}.{}", tenths / 10, tenths % 10);
         match total_bytes {
             Some(total) if total > 0 => {
