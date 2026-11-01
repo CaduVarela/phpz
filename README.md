@@ -21,7 +21,7 @@ It manages multiple **PHP CLI versions** without touching the system-wide PHP us
 |---|---|
 | Linux (x86_64, aarch64) | Supported and tested |
 | macOS (x86_64, aarch64) | Builds exist upstream, but untested |
-| Windows (x64) | Supported and tested on Windows 11, with the newest release of each PHP series for now |
+| Windows (x64) | Supported and tested on Windows 11 |
 
 ---
 
@@ -115,8 +115,8 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 ## Limitations
 
 - On Linux and macOS the binaries are fully static. They ship with a fixed set of extensions (bcmath, curl, gd, mbstring, mysqlnd, openssl, pdo_mysql, pdo_pgsql, pdo_sqlite, redis, zip and others), and extensions that are not compiled in (for example `xdebug`, `intl` or `opcache`) cannot be loaded.
-- On Linux and macOS, downloads are not verified against a checksum, because upstream does not publish them. Windows downloads are verified.
-- On Windows only the newest release of each PHP series is available (for example 8.4.27), only the non-thread-safe x64 build, and the official builds need the Microsoft Visual C++ Redistributable.
+- On Linux and macOS, downloads are not verified against a checksum, because upstream does not publish them.
+- On Windows, PHP 7.4 and newer are available (`phpz list --remote --all`), as the non-thread-safe x64 build, and the official builds need the Microsoft Visual C++ Redistributable. The newest release of each series and the most recent patches are verified against a published SHA-256. For most older patches windows.php.net publishes no checksum at all, so they are installed unverified and phpz says so.
 - On Windows, `PHP_INI_SCAN_DIR` or `PHPRC` set in your environment (for example by Scoop's PHP) make every PHP read configuration from outside its own directory, which can load extensions twice. `phpz use` warns about them and says how to clear them.
 - Windows builds the `PATH` of a program as the system `PATH` followed by the user `PATH`, so a PHP that sits on the *system* `PATH` (an XAMPP install, for example) is found before phpz's.
 
@@ -124,7 +124,6 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 
 ## Roadmap
 
-- Every patch version on Windows, not only the newest of each series.
 - Download integrity verification on Linux and macOS.
 - Extension management (`phpz ext`), pending support for builds that can load external extensions. The command exists but currently exits with an explanatory error.
 - `php.ini` profiles (`phpz config use dev`).

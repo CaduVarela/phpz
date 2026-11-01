@@ -76,7 +76,10 @@ Windows has official builds, so they are used. `https://windows.php.net/download
 - Versions can carry a packaging revision (`8.3.36-1`). It is dropped from the version phpz shows and stores (`8.3.36`) but kept in the download URL, because the zip is named `php-8.3.36-1-nts-Win32-vs16-x64.zip`.
 - Zip entries that try to leave the destination (`../`) are refused.
 - The zip contains no `php.ini`. phpz writes one from the bundled `php.ini-development`, activating `extension_dir = "ext"` and a default set of extensions (bz2, curl, exif, fileinfo, gd, gmp, intl, mbstring, mysqli, openssl, pdo_mysql, pdo_pgsql, pdo_sqlite, pgsql, sockets, sodium, sqlite3, zip). Directives are matched even when the template puts a comment after them (`;extension=exif ; Must be after mbstring...`).
-- Only the newest release of each series is offered for now. Older patches live in the `archives` directory, which has no JSON index and publishes no checksums.
+- Older patches live in the `archives` directory, which has no JSON index, so phpz reads its HTML listing (about 740 KB). File names are parsed strictly: only `php-<version>[-<revision>]-nts-Win32-<toolchain>-x64.zip` counts, so thread-safe and x86 builds, devel/debug/test packs and SBOM files are ignored. When a version has several rebuilds (`8.5.12` and `8.5.12-1`) the highest revision wins, and an entry from `releases.json` wins over the archive entry of the same version.
+- Versions below 7.4 are not offered: older series name extensions differently in `php.ini` (`php_curl.dll`), which the generated `php.ini` does not handle.
+- The page is read only when needed. A request for a series or a minor (`8`, `8.3`) always resolves to its newest release, which `releases.json` already holds, so `phpz install 8.3` and `phpz list --remote` stay at one small request. Only an exact older patch (`8.3.12`) and `phpz list --remote --all` read the archive page.
+- **Checksums for archive builds.** The archive publishes no usable hash file (`sha1sum.txt` only covers PHP 5.2 era files). Builds from 8.2.33, 8.3.33, 8.4.24 and 8.5.9 onwards have a CycloneDX SBOM next to the zip (`<zip>.cdx.json`) whose `metadata.component.hashes` is the SHA-256 of the zip itself (checked against the real file). phpz fetches it when installing and verifies the download. A missing SBOM (HTTP 404) means no checksum is published, and the install goes ahead with a note. Any other failure to fetch it aborts the install, so a flaky connection can never silently skip verification.
 
 ### Trade-offs
 
@@ -207,9 +210,8 @@ Closing the output pipe early (`phpz list --remote | head -1`) used to end in a 
 
 ## Future Enhancements
 
-- Every patch version on Windows, reading the `archives` directory (no checksums are published there).
 - A `php.exe` shim that clears the ini variables, replacing the Windows warning.
-- Download integrity verification with pinned checksums on Linux and macOS.
+- Download integrity verification with pinned checksums on Linux and macOS, and for the older Windows patches that publish none.
 - Optional compile-from-source install for custom extensions, which would also enable `phpz ext`.
 - `php.ini` profiles and templates (dev, prod, testing).
 - Global configuration shared across versions.
