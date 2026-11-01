@@ -76,12 +76,16 @@ phpz ext list                    # what the active version has: enabled, disable
 phpz ext enable intl             # switch an extension on in the active version
 phpz ext disable gd              # and off again
 phpz ext enable intl --global    # also keep it on in every version, now and when installed later
+phpz ext install xdebug          # Windows: download an extension that does not ship with PHP, and enable it
 phpz ext sync --all              # apply those global choices to every installed version
+phpz ext sync --install --all    # Windows: also download what each version is missing
 
 phpz completions bash   # also zsh, fish, elvish and powershell
 ```
 
-**Extensions.** On Windows the official zip ships the extensions as DLLs, so `phpz ext enable|disable` just switches the right line of the version's `php.ini` (the file keeps its comments, order and line endings). `--global` also records the choice in `~/.phpz/config.toml`, and from then on every version you install gets it, and `phpz ext sync` applies it to the ones you already have. An extension a version does not have is skipped with a message, never an error. On Linux and macOS the builds are static with a fixed set of extensions: `phpz ext list` shows what is built in, enabling a built-in one is a no-op, and one that is not in the build is reported as unavailable. Installing extensions that are not part of PHP itself (xdebug, redis, imagick...) is not available yet.
+**Extensions.** On Windows the official zip ships the extensions as DLLs, so `phpz ext enable|disable` just switches the right line of the version's `php.ini` (the file keeps its comments, order and line endings). `--global` also records the choice in `~/.phpz/config.toml`, and from then on every version you install gets it, and `phpz ext sync` applies it to the ones you already have. An extension a version does not have is skipped with a message, never an error. On Linux and macOS the builds are static with a fixed set of extensions: `phpz ext list` shows what is built in, enabling a built-in one is a no-op, and one that is not in the build is reported as unavailable. 
+
+**Installing extensions that do not ship with PHP (Windows).** `phpz ext install xdebug` downloads the newest stable release that has a build for your PHP (non thread safe, x64) from the PECL server at downloads.php.net, puts its DLL in the version's `ext` directory and enables it. `--version` picks another release and `--global` also keeps it wished for in every version. That server publishes no checksums, so the first download of a file asks for your confirmation (the default is no; in a script it is refused unless you pass `--allow-unverified`), and phpz records its SHA-256 in `~/.phpz/downloads.lock`. From then on the same address must give the same file, or nothing is installed. `phpz ext sync --install` downloads the wished extensions a version is missing, which is how a freshly installed PHP catches up. Installing a version and `phpz ext sync` without `--install` never download extensions by themselves. Extensions that come with extra libraries (imagick, for example) are refused for now. On Linux and macOS the builds are static and cannot load extra extensions at all.
 
 `phpz config` edits the `php.ini` of the active version. Only the line you change is touched: comments, ordering and repeated keys such as `extension=` are preserved. Values are written exactly as given, so quote them yourself when you need a string (`phpz config set error_log '"/tmp/php errors.log"'`).
 
@@ -135,7 +139,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 ## Roadmap
 
 - Download integrity verification on Linux and macOS.
-- Installing extensions that do not ship with PHP (xdebug, redis, imagick...), starting with Windows.
+- Extensions that come with extra libraries (imagick), and installing extensions on Linux and macOS.
 - Offering a larger build on Linux and macOS when an extension needs it, asking first, so the small fast build stays the default.
 - Per-project versions and extensions.
 - `php.ini` profiles (`phpz config use dev`).

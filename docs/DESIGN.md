@@ -14,7 +14,7 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 |---|---|---|---|
 | install, uninstall, list --remote, use, list, current, env, reset, setup, completions | done | untested | done |
 | config get, set, remove | done | untested | done |
-| ext list, enable, disable, sync | list works; the extensions are all built in | same, untested | done for the extensions in the zip |
+| ext list, enable, disable, sync | list works; the extensions are all built in | same, untested | done, plus install from PECL |
 
 ---
 
@@ -184,7 +184,16 @@ Easy control of extensions is a main goal: switch them in one command, and do no
 - PHP 7.0 and 7.1 spell lines as `extension=php_curl.dll`, later versions as `extension=curl`; a new line copies the style already in the file.
 - `php -m` runs with the version's own `PHPRC` and without `PHP_INI_SCAN_DIR`, so a variable left by another PHP (Scoop) cannot change what phpz reports. It runs at most once per command, and only when a built-in check needs it.
 
-**Not done yet.** Extensions that do not ship with PHP (xdebug, redis, apcu, imagick). On Windows they would be downloaded from `downloads.php.net/~windows/pecl/releases/<ext>/<version>/php_<ext>-<version>-<php series>-nts-<vs16|vs17>-x64.zip`, a layout verified for xdebug and redis. That server publishes no checksums; the xdebug.org per-DLL hashes belong to a different build, and GitHub release assets expose a `digest`. The checksum consent rule already in `install` fits this: without a published hash, ask, and remember the hash on first use. On Linux and macOS a static build cannot load `.so` files at all, so this needs a different build (see the research notes). Per-project settings come with the per-project version feature, and should accept extension names only, never paths, because a project file that can load arbitrary files is a risk.
+**Installing extensions that do not ship with PHP (Windows).** `phpz ext install <name> [--version X] [--allow-unverified] [--global]` and `phpz ext sync --install [--all] [--allow-unverified]`.
+
+- *Source.* `downloads.php.net/~windows/pecl/releases/<ext>/<version>/php_<ext>-<version>-<php series>-nts-<vs16|vs17|vc15>-x64.zip`. phpz lists the extension's releases, keeps the stable ones (digits and dots only, compared as numbers), and walks from the newest to the first that has a zip for the active PHP series (at most 12 releases). Names are validated (lowercase letters, digits, underscore) before they reach a URL.
+- *Package rule.* Only `php_<name>.dll` is extracted, into the version's `ext` directory. The rest of the package (symbols, a sample ini, documentation, scripts in folders) is ignored. A package that also has any other `.dll` or `.exe`, at any depth, is refused, because the extension would need those libraries and dropping unknown libraries next to PHP could replace one of PHP's own. This is why `imagick` (hundreds of `CORE_RL_*.dll`) is not supported yet. An early version refused every package with a folder, which wrongly rejected `xdebug` (its zip has a `contrib` folder); the rule now looks at libraries only.
+- *Integrity.* The server publishes no checksums (no sidecar files, no signatures), so this reuses the consent rule of `install`: the first download of an address asks, or needs `--allow-unverified`, and a script without the flag is refused. After the DLL is installed, its SHA-256 goes to `~/.phpz/downloads.lock` (address to hash). Any later download of that address must match or nothing is installed, which catches a file swapped on the server afterwards but cannot prove the first download was clean. If the lock cannot be saved, the DLL is taken back out. A package that fails to install is not remembered.
+- *Already there.* If the version already has the DLL (bundled or installed before), `ext install` downloads nothing and just enables it. A built-in extension is reported as such.
+- *`sync --install`.* For each version it finds the wished extensions that are neither shared nor built in, downloads them, then applies the settings as `sync` always does. One failing extension is reported on its own line and does not stop the others, and any failure makes the command exit with status 1. `phpz install` and a plain `sync` never download; they print a hint to run `sync --install`.
+- *Not available on Linux and macOS*, where the static builds cannot load `.so` files at all. That needs a different build (see the research notes).
+
+Per-project settings come with the per-project version feature, and should accept extension names only, never paths, because a project file that can load arbitrary files is a risk.
 
 ### Profiles (planned)
 
@@ -207,6 +216,11 @@ src/
   environment.rs     warning about PHP ini variables that break isolation
   extensions.rs      shared / built-in / loaded extensions, enable, disable, applying settings
   settings.rs        ~/.phpz/config.toml (global extension choices)
+  pecl.rs            finding extension builds on the PECL server, extracting the DLL
+  extension_install.rs  downloading an extension with consent and the remembered checksum
+  lock.rs            ~/.phpz/downloads.lock (checksums remembered from first use)
+  download.rs        download with progress and SHA-256 check
+  consent.rs         the rule for installing without a published checksum
   interaction.rs     interactive terminal check and the yes/no question
   pipe.rs            quiet exit when the reader of our output goes away
   ini.rs             line-preserving php.ini editor
@@ -235,7 +249,8 @@ Closing the output pipe early (`phpz list --remote | head -1`) used to end in a 
 
 - A `php.exe` shim that clears the ini variables, replacing the Windows warning.
 - Download integrity verification with pinned checksums on Linux and macOS, and for the older Windows patches that publish none.
-- Extensions that do not ship with PHP, starting with Windows (see Extensions).
+- Extensions that come with extra libraries (imagick), by copying the libraries without ever overwriting an existing file.
+- Extensions that do not ship with PHP on Linux and macOS.
 - On Linux and macOS, an on-demand larger build that can load `.so` extensions, offered after asking (see the research notes).
 - `php.ini` profiles and templates (dev, prod, testing).
 - Global configuration shared across versions.
