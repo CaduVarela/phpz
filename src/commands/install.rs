@@ -1,5 +1,5 @@
 use std::fs::{self, File};
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 use flate2::read::GzDecoder;
@@ -66,12 +66,99 @@ fn install(requested_version: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Download and lay out a version inside `directory`:
+fn populate(build: &Build, directory: &Path) -> Result<(), String> {
+    if cfg!(windows) {
+        lay_out_windows_build(build, directory)
+    } else {
+        lay_out_static_build(build, directory)
+    }
+}
+
+/// Extensions enabled by default in the Windows php.ini, when the build ships them.
+const WINDOWS_DEFAULT_EXTENSIONS: &[&str] = &[
+    "bz2", "curl", "exif", "fileinfo", "gd", "gmp", "intl", "mbstring", "mysqli", "openssl",
+    "pdo_mysql", "pdo_pgsql", "pdo_sqlite", "pgsql", "sockets", "sodium", "sqlite3", "zip",
+];
+
+/// Official Windows zip, extracted as it comes:
+///   php.exe, DLLs, ext\   from the zip
+///   php.ini               php.ini-development with extension_dir and common extensions enabled
+fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> {
+    let archive_path = directory.join("download.zip");
+    download(&build.url, &archive_path, build.sha256.as_deref())?;
+    extract_zip(&archive_path, directory)?;
+    let _ = fs::remove_file(&archive_path);
+
+    let template_path = directory.join("php.ini-development");
+    let template = fs::read_to_string(&template_path)
+        .map_err(|error| format!("reading {}: {}", template_path.display(), error))?;
+
+    let mut directives = vec!["extension_dir = \"ext\"".to_string()];
+    directives.extend(
+        WINDOWS_DEFAULT_EXTENSIONS
+            .iter()
+            .map(|name| format!("extension={}", name)),
+    );
+    fs::write(directory.join("php.ini"), uncomment_directives(&template, &directives))
+        .map_err(|error| format!("writing php.ini: {}", error))
+}
+
+/// Turn `;directive` lines into active `directive` lines. Anything else is left alone.
+fn uncomment_directives(content: &str, directives: &[String]) -> String {
+    content
+        .split_inclusive('\n')
+        .map(|line| {
+            let text = line.trim_end_matches(['\r', '\n']);
+            let is_wanted = text
+                .strip_prefix(';')
+                .map(|directive| directives.iter().any(|wanted| wanted == directive))
+                .unwrap_or(false);
+            if is_wanted {
+                line[1..].to_string()
+            } else {
+                line.to_string()
+            }
+        })
+        .collect()
+}
+
+/// Extract every entry of the zip below `destination`, refusing paths that escape it.
+fn extract_zip(archive_path: &Path, destination: &Path) -> Result<(), String> {
+    let file = File::open(archive_path).map_err(|error| error.to_string())?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|error| format!("reading archive: {}", error))?;
+
+    for index in 0..archive.len() {
+        let mut entry = archive
+            .by_index(index)
+            .map_err(|error| format!("reading archive: {}", error))?;
+        let relative_path = entry
+            .enclosed_name()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| format!("unsafe path in archive: {}", entry.name()))?;
+        let target = destination.join(relative_path);
+
+        if entry.is_dir() {
+            fs::create_dir_all(&target).map_err(|error| error.to_string())?;
+            continue;
+        }
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        let mut output = File::create(&target)
+            .map_err(|error| format!("creating {}: {}", target.display(), error))?;
+        io::copy(&mut entry, &mut output)
+            .map_err(|error| format!("extracting {}: {}", target.display(), error))?;
+    }
+    Ok(())
+}
+
+/// Static build from static-php-cli (Linux and macOS):
 ///   libexec/php   the real static binary
 ///   bin/php       wrapper script that points PHP at this version's php.ini
 ///   php.ini       configuration
 ///   conf.d/       additional ini files
-fn populate(build: &Build, directory: &Path) -> Result<(), String> {
+fn lay_out_static_build(build: &Build, directory: &Path) -> Result<(), String> {
     let archive_path = directory.join("download.tar.gz");
     download(&build.url, &archive_path, build.sha256.as_deref())?;
 
