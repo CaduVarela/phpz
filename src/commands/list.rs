@@ -1,6 +1,5 @@
 use crate::installed;
 
-/// List installed versions, marking the active one
 pub fn run() {
     let result = installed::installed_versions().and_then(|versions| {
         installed::active_version().map(|active| (versions, active))

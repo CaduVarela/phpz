@@ -2,7 +2,6 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-/// Section that holds regular PHP settings.
 pub const PHP_SECTION: &str = "PHP";
 
 pub struct IniDocument {
@@ -81,7 +80,6 @@ impl IniDocument {
         output
     }
 
-    /// Indexes of the active (not commented) lines that define `key` in `section`.
     fn find_entries(&self, section: &str, key: &str) -> Vec<usize> {
         let mut current_section = "";
         let mut found = Vec::new();
@@ -100,7 +98,7 @@ impl IniDocument {
         found
     }
 
-    /// Effective value of `key`. As in PHP, the last definition wins.
+    /// As in PHP, the last definition of a key wins.
     pub fn get(&self, section: &str, key: &str) -> Option<String> {
         let index = *self.find_entries(section, key).last()?;
         match classify(&self.lines[index]) {
@@ -130,7 +128,6 @@ impl IniDocument {
         }
     }
 
-    /// Remove every active definition of `key`. Returns how many lines were removed.
     pub fn remove(&mut self, section: &str, key: &str) -> usize {
         let indexes = self.find_entries(section, key);
         for index in indexes.iter().rev() {

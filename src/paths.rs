@@ -11,7 +11,6 @@ pub fn versions_directory() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("versions"))
 }
 
-/// Symlink pointing at the active version's directory.
 pub fn current_link() -> Result<PathBuf, String> {
     Ok(phpz_home()?.join("current"))
 }

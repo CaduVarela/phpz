@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 
 use crate::{installed, version};
 
-/// List versions available for download.
-/// By default only the newest patch of each MAJOR.MINOR is shown.
 pub fn run(all: bool) {
     if let Err(error) = list_remote(all) {
         eprintln!("Error: {}", error);

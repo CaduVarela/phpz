@@ -16,7 +16,6 @@ display_errors = On
 date.timezone = UTC
 ";
 
-/// Install a specific PHP version
 pub fn run(version: String) {
     if let Err(error) = install(&version) {
         eprintln!("Error: {}", error);
@@ -40,7 +39,6 @@ fn install(requested_version: &str) -> Result<(), String> {
         return Ok(());
     }
 
-    // Clean up leftovers from a previous failed attempt
     if temporary_directory.exists() {
         let _ = fs::remove_dir_all(&temporary_directory);
     }
@@ -136,7 +134,6 @@ fn download(url: &str, destination: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Extract the `php` executable from the archive to `destination`.
 fn extract_php_binary(archive_path: &Path, destination: &Path) -> Result<(), String> {
     let file = File::open(archive_path).map_err(|error| error.to_string())?;
     let mut archive = Archive::new(GzDecoder::new(file));
