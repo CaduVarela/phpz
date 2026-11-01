@@ -4,10 +4,12 @@ pub mod list;
 pub mod reset;
 pub mod current;
 pub mod env;
+pub mod completions;
 pub mod config;
 pub mod ext;
 
 use clap::Subcommand;
+use clap_complete::Shell;
 
 #[derive(Subcommand)]
 pub enum Commands {
@@ -18,6 +20,8 @@ pub enum Commands {
     Current,
     /// Print shell code to put the active version on PATH (use: eval "$(phpz env)")
     Env,
+    /// Print a shell completion script (bash, zsh, fish, elvish, powershell)
+    Completions { shell: Shell },
     Config {
         #[command(subcommand)]
         command: config::ConfigCommands,
@@ -37,6 +41,7 @@ impl Commands {
             Commands::Reset => reset::run(),
             Commands::Current => current::run(),
             Commands::Env => env::run(),
+            Commands::Completions { shell } => completions::run(shell),
             Commands::Config { command } => command.run(),
             Commands::Ext { command } => command.run(),
         }
