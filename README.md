@@ -8,6 +8,24 @@
   <img alt="Linux, macOS and Windows" src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg">
 </p>
 
+## Install
+
+```bash
+# Linux and macOS
+curl -fsSL https://raw.githubusercontent.com/CaduVarela/phpz/master/install.sh | sh
+```
+
+```powershell
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/CaduVarela/phpz/master/install.ps1 | iex
+```
+
+Or build it yourself with Rust: `cargo install --path . && phpz setup`.
+
+Linux and Windows are tested. macOS builds and passes the tests, but nobody has installed PHP with it yet.
+
+## Use
+
 ```bash
 phpz install 8.3          # no sudo, no compiler
 phpz use 8.3              # switch the default
@@ -43,14 +61,5 @@ Run `php` inside that folder and you get PHP 8.3 with those extensions. Everywhe
 | `phpz current` | what applies here |
 
 The full list is in the [guide](docs/GUIDE.md).
-
-## Install
-
-```bash
-git clone https://github.com/CaduVarela/phpz.git && cd phpz
-cargo install --path . && phpz setup
-```
-
-Linux and Windows are tested. macOS builds and passes the tests, but nobody has installed PHP with it yet.
 
 [Guide](docs/GUIDE.md) · [Design](docs/DESIGN.md) · [Changelog](CHANGELOG.md) · MIT license
