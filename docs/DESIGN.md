@@ -12,8 +12,8 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 
 | Area | Linux | macOS | Windows |
 |---|---|---|---|
-| install, uninstall, list --remote, use, list, current, env, reset, setup, completions | done | untested | not implemented |
-| config get, set, remove | done | untested | not implemented |
+| install, uninstall, list --remote, use, list, current, env, reset, setup, completions | done | untested | done |
+| config get, set, remove | done | untested | done |
 | ext enable, disable | exits with an explanatory error | same | same |
 
 ---
@@ -34,7 +34,20 @@ Beyond installing and switching versions, it aims to make `php.ini` management s
 
 A version is installed into `<version>.tmp` and renamed to `<version>` only when everything succeeded, so an interrupted install never leaves a half-installed version behind. A failed or leftover `.tmp` directory is ignored by `list` and removed on the next attempt.
 
-Windows is planned to use `%USERPROFILE%\.phpz\` with `php.exe` and a shim directory instead of a symlink.
+On Windows the official zip is extracted as it comes, and `current` is a directory junction:
+
+```
+%USERPROFILE%\.phpz\
+  versions\
+    8.4.27\
+      php.exe, DLLs, ext\     from the zip
+      php.ini                 generated from php.ini-development
+  current  ->  versions\8.4.27
+```
+
+A junction was chosen over a symlink because creating symlinks on Windows needs administrator rights or Developer Mode, while junctions do not. It was also chosen over a shim directory because `current` can be put on `PATH` as it is: the official zip keeps `php.exe` at its top level, so no `bin` directory or wrapper is needed.
+
+`PHPZ_HOME`, when set, replaces `~/.phpz` (or `%USERPROFILE%\.phpz`). It exists mostly so tests can run in an isolated directory, since `dirs::home_dir()` on Windows ignores environment variables.
 
 ---
 
@@ -56,11 +69,20 @@ Each archive contains a single `php` executable. phpz extracts it to `libexec/ph
 
 The static binary has its `php.ini` search path compiled in (`/usr/local/etc/php`). `bin/php` is a small shell script that sets `PHPRC` and `PHP_INI_SCAN_DIR` to the version's own directory and then runs `libexec/php`. This is what gives every version an independent configuration.
 
+### Windows
+
+Windows has official builds, so they are used. `https://windows.php.net/downloads/releases/releases.json` lists the newest release of each series (7.4 to 8.5 today) with the file name and the **SHA-256** of every zip. phpz picks the non-thread-safe x64 build (`nts-*-x64`, the right one for the CLI), downloads it and compares the SHA-256 before anything is extracted. A mismatch discards the download.
+
+- Versions can carry a packaging revision (`8.3.36-1`). It is dropped from the version phpz shows and stores (`8.3.36`) but kept in the download URL, because the zip is named `php-8.3.36-1-nts-Win32-vs16-x64.zip`.
+- Zip entries that try to leave the destination (`../`) are refused.
+- The zip contains no `php.ini`. phpz writes one from the bundled `php.ini-development`, activating `extension_dir = "ext"` and a default set of extensions (bz2, curl, exif, fileinfo, gd, gmp, intl, mbstring, mysqli, openssl, pdo_mysql, pdo_pgsql, pdo_sqlite, pgsql, sockets, sodium, sqlite3, zip). Directives are matched even when the template puts a comment after them (`;extension=exif ; Must be after mbstring...`).
+- Only the newest release of each series is offered for now. Older patches live in the `archives` directory, which has no JSON index and publishes no checksums.
+
 ### Trade-offs
 
 - **Fixed extension set.** The build includes: bcmath, bz2, calendar, ctype, curl, dom, exif, fileinfo, filter, ftp, gd, gmp, iconv, libxml, mbstring, mbregex, mysqlnd, openssl, pcntl, pdo, pdo_mysql, pdo_pgsql, pdo_sqlite, pgsql, phar, posix, redis, session, simplexml, soap, sockets, sqlite3, tokenizer, xmlreader, xmlwriter, zip and zlib. A static binary cannot load external `.so` extensions, so `xdebug`, `intl` or `opcache` are not available.
 - **Third-party dependency.** If the upstream host changes its layout or disappears, installs break.
-- **No integrity check.** Upstream publishes no checksums, so downloads are only checked for completeness (received bytes match `Content-Length`). Pinning hashes is a planned improvement.
+- **No integrity check (Linux and macOS).** Upstream publishes no checksums, so downloads are only checked for completeness (received bytes match `Content-Length`), and phpz prints a note saying so. Pinning hashes is a planned improvement. Windows downloads are verified.
 
 ---
 
@@ -69,11 +91,11 @@ The static binary has its `php.ini` search path compiled in (`/usr/local/etc/php
 - `phpz install <version>`: resolve the version, download, extract and lay out `versions/<version>/`. Accepts `MAJOR`, `MAJOR.MINOR` or `MAJOR.MINOR.PATCH`.
 - `phpz uninstall <version>`: remove an installed version. It requires the exact version shown by `list` (so `8.3` never deletes by accident) and refuses to remove the active version.
 - `phpz list --remote [--all]`: list versions that have a build for this platform, newest patch of each minor by default, marking the ones already installed. `--all` is only accepted together with `--remote`.
-- `phpz use <version>`: point the `current` symlink at an installed version. The symlink is replaced atomically (create a temporary link, then rename over `current`). Partial versions match the newest installed one.
+- `phpz use <version>`: point `current` at an installed version. On Unix the symlink is replaced atomically (create a temporary link, then rename over `current`). On Windows a junction cannot be renamed over, so the old one is removed and a new one created. Partial versions match the newest installed one.
 - `phpz list`: list installed versions and mark the active one.
 - `phpz current`: show the active version.
-- `phpz env`: print shell code that puts `~/.phpz/current/bin` first on `PATH`.
-- `phpz reset`: remove the `current` symlink, deactivating phpz's PHP.
+- `phpz env`: print shell code that puts the active version first on `PATH`: an `export` line for POSIX shells, and `$env:Path = "...;" + $env:Path` for PowerShell (use `phpz env | Invoke-Expression`).
+- `phpz reset`: remove the `current` link (symlink or junction, never the version it points to), deactivating phpz's PHP.
 
 ### Environment strategy
 
@@ -91,7 +113,18 @@ A child process cannot change its parent shell's environment, so phpz cannot edi
 - After a successful `phpz install`, phpz offers to run the same setup. The question is asked only once (recorded in `~/.phpz/.setup-prompted`), only when stdin and stderr are terminals, and not when `PATH` is already configured. Scripts and CI are never prompted.
 - `phpz env` still prints the export line for shells that `setup` does not support.
 
-`PATH` points to the stable `~/.phpz/current/bin`, so `phpz use` takes effect immediately in every open shell without re-evaluating anything. Only bash and zsh are supported; fish and PowerShell are not.
+`PATH` points to the stable `~/.phpz/current/bin`, so `phpz use` takes effect immediately in every open shell without re-evaluating anything. On Unix only bash and zsh are supported by `setup`.
+
+**Windows.** There is no profile file to edit; the `PATH` lives in the registry, so `phpz setup` edits the **user** `PATH` (`HKEY_CURRENT_USER\Environment`, value `Path`):
+
+- It puts `<phpz home>\current` **first**, so phpz wins over other user entries such as Scoop's shims, and it matches existing entries ignoring case and a trailing backslash, which makes it idempotent.
+- It writes the value back with the **same registry type** (`REG_EXPAND_SZ` normally), so entries such as `%USERPROFILE%\bin` keep expanding. Every other entry stays byte for byte as it was, and `setup --undo` restores the original value exactly.
+- It then broadcasts `WM_SETTINGCHANGE` so Explorer and newly opened terminals see the change. Terminals that are already open keep their old `PATH`; the message printed by `setup` shows the one-liner that updates the current one.
+- Windows builds a program's `PATH` as the system `PATH` followed by the user `PATH`. A PHP on the *system* `PATH` is therefore found first, and phpz does not touch the system `PATH` because that needs administrator rights.
+
+### Isolation between versions
+
+On Unix, `bin/php` sets `PHPRC` and `PHP_INI_SCAN_DIR` itself. On Windows `php.exe` runs directly and inherits the environment, so a `PHP_INI_SCAN_DIR` left by another PHP installation (Scoop sets one) makes PHP read that installation's ini files as well, and every extension is reported as "already loaded". `phpz use` warns when either variable is set, offers `$env:NAME = $null` to clear it for the current terminal first, and mentions the permanent removal last because it also affects the other PHP. A small `php.exe` shim that clears the variables before starting the real one would remove the need for the warning; it is not implemented.
 
 `reset` does not clean other PHP installations out of `PATH`. It only deactivates phpz's own version.
 
@@ -109,7 +142,7 @@ phpz config set memory_limit 512M
 phpz config remove memory_limit
 ```
 
-They operate on the `[PHP]` section of the active version's `php.ini`.
+They operate on the `[PHP]` section of the active version's `php.ini`, on every platform.
 
 ### The ini editor
 
@@ -141,17 +174,24 @@ Keeping several `php.ini` profiles per version, such as `dev.ini` (verbose error
 ```
 src/
   main.rs            entry point
-  paths.rs           ~/.phpz, versions directory, current link
-  version.rs         version resolution and download URLs
+  paths.rs           phpz home (PHPZ_HOME), versions directory, current link, directory for PATH
+  version.rs         builds, version selection
+  version/           static_php.rs (Linux, macOS) and windows_php.rs (windows.php.net)
   installed.rs       installed versions, active version, active php.ini path
-  shell.rs           shell profile detection and the PATH block used by setup
+  link.rs            symlink (Unix) or junction (Windows) for `current`
+  shell.rs           SetupTarget: shell profile block (Unix) or user PATH (Windows), first-install question
+  user_path.rs       text edits of the Windows PATH and its registry access
+  environment.rs     warning about PHP ini variables that break isolation
+  pipe.rs            quiet exit when the reader of our output goes away
   ini.rs             line-preserving php.ini editor
   commands/          one module per subcommand
   <module>/tests.rs  unit tests of <module>.rs (private items stay reachable)
 tests/fixtures/      sample files used by the tests
 ```
 
-Version and installed-version selection are pure functions (`select_version`, `select_installed`) so they are unit tested without network or disk access. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings`.
+Version and installed-version selection are pure functions (`select_build`, `select_installed`), and so are the parsers and text edits that Windows needs (`parse_releases`, `add_entry`, `remove_entry`, `uncomment_directives`), so all of them are unit tested on every platform without network or registry access. `tests/closed_pipe.rs` runs the real binary with a closed output pipe. CI (`.github/workflows/ci.yml`) runs build, tests and `clippy -D warnings` on Linux and Windows.
+
+Closing the output pipe early (`phpz list --remote | head -1`) used to end in a panic message. On Unix the default `SIGPIPE` behavior is restored at startup, and a panic hook turns a failed write caused by a broken pipe into a quiet exit, which is what covers Windows.
 
 `phpz completions <shell>` prints a completion script generated from the command definitions.
 
@@ -161,14 +201,15 @@ Version and installed-version selection are pure functions (`select_version`, `s
 
 - **Linux**: static tar.gz builds and symlinks. Supported.
 - **macOS**: the same upstream provides builds for Intel and ARM64, and the code path is shared with Linux, but it has not been tested.
-- **Windows**: official zip builds from windows.php.net and a shim system instead of symlinks. Not implemented. Today `install` fails with a clear "unsupported platform" error.
+- **Windows**: official zip builds from windows.php.net (x64, non-thread-safe), verified with SHA-256, a junction for `current`, and the user `PATH` in the registry. Supported and tested on Windows 11. ARM64 is not supported because there are no official ARM64 builds.
 
 ---
 
 ## Future Enhancements
 
-- Windows support.
-- Download integrity verification with pinned checksums.
+- Every patch version on Windows, reading the `archives` directory (no checksums are published there).
+- A `php.exe` shim that clears the ini variables, replacing the Windows warning.
+- Download integrity verification with pinned checksums on Linux and macOS.
 - Optional compile-from-source install for custom extensions, which would also enable `phpz ext`.
 - `php.ini` profiles and templates (dev, prod, testing).
 - Global configuration shared across versions.
