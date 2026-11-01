@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- On Linux, `ext install` knows the libraries and flags of imagick, gmagick, yaml, memcached, ssh2, rdkafka and gnupg, and names the missing Debian or Ubuntu package before compiling.
+
 ## [0.4.0] - 2026-11-01
 
 Smaller things on top of 0.3: pick up the folder's version with `use`, compile extensions on Linux, and a few safety and housekeeping additions.
