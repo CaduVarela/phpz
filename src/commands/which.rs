@@ -1,4 +1,5 @@
-use crate::{extensions, selection};
+use crate::extensions;
+use crate::php::selection;
 
 /// Print the path of the php that runs in the current directory
 pub fn run() {

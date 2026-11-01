@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 use crate::extensions::extension_name;
-use crate::paths;
+use crate::platform::paths;
 
 const FILE_NAME: &str = "config.toml";
 

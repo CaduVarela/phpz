@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::paths;
+use crate::platform::paths;
 
 const FILE_NAME: &str = "downloads.lock";
 

@@ -1,7 +1,7 @@
 use clap::Subcommand;
 
-use crate::ini::{IniDocument, PHP_SECTION};
-use crate::selection;
+use crate::php::ini::{IniDocument, PHP_SECTION};
+use crate::php::selection;
 
 #[derive(Subcommand)]
 pub enum ConfigCommands {

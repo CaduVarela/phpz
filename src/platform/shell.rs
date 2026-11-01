@@ -2,8 +2,10 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::user_path as registry_path;
-use crate::{interaction, paths, shim};
+use crate::platform::interaction;
+use crate::platform::paths;
+use crate::platform::user_path as registry_path;
+use crate::project::shim;
 
 const BLOCK_START: &str = "# >>> phpz >>>";
 const BLOCK_END: &str = "# <<< phpz <<<";

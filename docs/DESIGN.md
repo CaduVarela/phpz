@@ -138,7 +138,7 @@ On Unix, `bin/php` sets `PHPRC` and `PHP_INI_SCAN_DIR` itself. On Windows `php.e
 
 ## Per-project versions
 
-A project can pin its PHP version with files that phpz finds by walking up from the current directory (`src/project.rs`, `src/selection.rs`).
+A project can pin its PHP version with files that phpz finds by walking up from the current directory (`src/project/`, `src/php/selection/`).
 
 - `.php-version`: the first line that is not blank or a `#` comment, as `8`, `8.3`, `8.3.9`, `v8.3` or `php-8.3`. Other tools read this file too, so it carries a version and nothing else.
 - `.phpz.toml`: `php = "8.3"` (a string, because TOML would turn `8.3` into a float) and an optional `[extensions]` table with `enable` and `disable` lists. It wins over a `.php-version` in the same directory; if it does not set `php`, the `.php-version` next to it supplies the version.
@@ -150,7 +150,7 @@ A project can pin its PHP version with files that phpz finds by walking up from 
 
 ### Extensions per project
 
-`.phpz.toml` may carry `[extensions] enable = [...] disable = [...]` (names only; see above). They cannot be applied to the version's own php.ini, which every project shares, so the shim hands PHP a generated copy (`src/project_ini.rs`).
+`.phpz.toml` may carry `[extensions] enable = [...] disable = [...]` (names only; see above). They cannot be applied to the version's own php.ini, which every project shares, so the shim hands PHP a generated copy (`src/project/ini`).
 
 - *Generation.* When a project sets extension choices, the shim loads the version's `php.ini`, applies the choices with the same engine as `phpz ext enable|disable` (`extensions::apply_settings`), and, if anything changed, writes the result to `~/.phpz/projects/<key>/php.ini` and points `PHPRC` there. The key is a hash of the project folder and the version, so each pair has its own file. If the choices change nothing (everything is already as asked) the version's own directory is used and nothing is written.
 - *No staleness bookkeeping.* The file is rebuilt in memory on each run and written only when its content differs from what is there, so a change to the version's php.ini or to the project file takes effect on the next run, and an unchanged project costs a read, a few string edits and a comparison.
@@ -164,7 +164,7 @@ A project can pin its PHP version with files that phpz finds by walking up from 
 
 ## Shims
 
-Choosing a version per folder has to happen when `php` runs, because the answer depends on the folder. That is what a shim is for, as in rbenv, pyenv or mise (`src/shim.rs`).
+Choosing a version per folder has to happen when `php` runs, because the answer depends on the folder. That is what a shim is for, as in rbenv, pyenv or mise (`src/project/shim/`).
 
 - *The shim is phpz itself.* `~/.phpz/shims/php` is a symlink to the phpz binary on Unix and a copy of `phpz.exe` named `php.exe` on Windows (a copy keeps working when the original is replaced or moved, and symlinks need privileges there). `main` checks the name the process was started under; if it is `php`, phpz does not parse commands, it behaves as the php of the version that applies here. No shell script runs, so there is no extra process or shell start-up on each call.
 - *What it does.* It resolves the version exactly like `phpz current` does (project pin, else default, with the same errors), then starts that version's real binary with the original arguments. On Unix it uses `exec`, so the process is replaced and signals, stdin and the exit code are the real php's. On Windows it waits and returns the exit code. It sets `PHPRC` (and on Unix `PHP_INI_SCAN_DIR` to the version's `conf.d`, which is what the `bin/php` wrapper does) and on Windows removes `PHP_INI_SCAN_DIR`.
@@ -176,7 +176,7 @@ Choosing a version per folder has to happen when `php` runs, because the answer 
 
 ## Builds on Linux and macOS
 
-static-php-cli publishes several builds, and the extensions a version has are fixed by the build, since they are compiled in. Choosing the build is therefore how extensions are chosen on these systems (`src/variant.rs`).
+static-php-cli publishes several builds, and the extensions a version has are fixed by the build, since they are compiled in. Choosing the build is therefore how extensions are chosen on these systems (`src/php/variant/`).
 
 - *The builds.* `minimal` (8 extensions), `common` (38, the default), `bulk` (57) and `gnu-bulk` (the same 57, built dynamically against glibc 2.17). The enum is declared smallest download first, so its derived order is the size order. The lists are not hard-coded: they come from each build's `build-extensions.json` when needed, and `phpz variants` also reads the size of the newest build from the index.
 - *They are not nested.* `bulk` has `intl` and `opcache` but lacks `pdo_sqlite` and `pdo_pgsql`, which `common` has. So a switch can lose extensions, and every place that offers one computes and shows that (`lost_by_switching`) before asking.
@@ -194,7 +194,7 @@ static-php-cli publishes several builds, and the extensions a version has are fi
 
 ## Compiling from the official source (Linux)
 
-`phpz install <version> --build` (`src/source_build.rs`, and `install_from_source` in `src/commands/install.rs`). The earlier decision not to compile or host builds was about the project doing it for everyone, which is a recurring job and a server. Compiling on the user's own machine, when asked, needs neither: the input is php.net's file and the output stays on that machine.
+`phpz install <version> --build` (`src/php/source_build/`, and `install_from_source` in `src/commands/install.rs`). The earlier decision not to compile or host builds was about the project doing it for everyone, which is a recurring job and a server. Compiling on the user's own machine, when asked, needs neither: the input is php.net's file and the output stays on that machine.
 
 - *Source and checks.* The release comes from php.net's release JSON (`/releases/index.php?json&version=...`), which also publishes a SHA-256 for each archive. The `.tar.gz` is used because phpz can already unpack it (`flate2` and `tar`), so no xz dependency is needed. The archive is compared with the published SHA-256 and, if `gpg` is installed, with its detached signature (`.asc`) using the keyring php.net publishes, in a throwaway `GNUPGHOME`. A bad or unverifiable signature stops the build. Without `gpg` the SHA-256 check is the only one, and phpz says so. The fingerprint of the signing key is also compared with the release managers' fingerprints built into phpz, so a compromised php.net cannot add a key of its own to the keyring unnoticed. A signature by a key that is in the keyring but not in that list is not refused, because new release managers appear over time and the list would otherwise block new releases until phpz is updated: it asks for consent, like a missing checksum (`--allow-unverified` for scripts). The list is updated in a phpz release.
 - *The recipe is a table.* `CORE_FLAGS` need nothing but a compiler. Each optional component lists its configure flags, the pkg-config modules it needs, and the Debian or Ubuntu package to suggest. `plan()` keeps a component only if all its modules are present, so a missing library leaves one extension out with a hint and never fails the build. Without `pkg-config` only the library-free part is built. The table encodes dependencies that `--disable-all` hides, found by a real build: `dom`, `simplexml` and `soap` need `--with-libxml`, and `gd` needs `--with-zlib`. Tests keep those pairs together.
@@ -224,7 +224,7 @@ They operate on the `[PHP]` section of the active version's `php.ini`, on every 
 
 ### The ini editor
 
-`src/ini.rs` is a **line-preserving editor**, not a parse-and-regenerate library. The file is kept as a list of lines and only the lines that match the requested key are changed, so:
+`src/php/ini/` is a **line-preserving editor**, not a parse-and-regenerate library. The file is kept as a list of lines and only the lines that match the requested key are changed, so:
 
 - comments, blank lines and ordering are preserved;
 - repeated keys (`extension=curl`, `extension=gd`) are preserved;
@@ -279,34 +279,35 @@ Keeping several `php.ini` profiles per version, such as `dev.ini` (verbose error
 
 ```
 src/
-  main.rs            entry point
-  paths.rs           phpz home (PHPZ_HOME), versions directory, current link, directory for PATH
-  version.rs         builds, version selection
-  version/           static_php.rs (Linux, macOS) and windows_php.rs (windows.php.net)
-  installed.rs       installed versions and the default version
-  project.rs         finding and reading .php-version and .phpz.toml
-  project_ini.rs     the php.ini generated for a project's extension choices
-  source_build.rs    compiling from php.net: release data, the configure recipe, signature check
-  variant.rs         the static-php builds, their recorded choice, which one covers an extension set
-  shim.rs            the php shim: starts the right version, keeps the link or copy fresh
-  selection.rs       the version that applies in a directory, and where it comes from
-  link.rs            symlink (Unix) or junction (Windows) for `current`
-  shell.rs           SetupTarget: shell profile block (Unix) or user PATH (Windows), first-install question
-  user_path.rs       text edits of the Windows PATH and its registry access
-  environment.rs     warning about PHP ini variables that break isolation
-  extensions.rs      shared / built-in / loaded extensions, enable, disable, applying settings
-  settings.rs        ~/.phpz/config.toml (global extension choices)
-  pecl.rs            finding extension builds on the PECL server, extracting the DLL
-  extension_build.rs compiling a PECL extension against a PHP compiled here
-  extension_install.rs  downloading an extension with consent and the remembered checksum
-  lock.rs            ~/.phpz/downloads.lock (checksums remembered from first use)
-  download.rs        download with progress and SHA-256 check
-  consent.rs         the rule for installing without a published checksum
-  interaction.rs     interactive terminal check and the yes/no question
-  pipe.rs            quiet exit when the reader of our output goes away
-  ini.rs             line-preserving php.ini editor
-  commands/          one module per subcommand
-  <module>/tests.rs  unit tests of <module>.rs (private items stay reachable)
+  main.rs               entry point
+  commands/             one module per subcommand
+  platform/             the operating system side
+    paths               phpz home (PHPZ_HOME), versions directory, current link, directory for PATH
+    link                symlink (Unix) or junction (Windows) for `current`
+    shell               shell profile block (Unix) or user PATH (Windows), first-install question
+    user_path           text edits of the Windows PATH and its registry access
+    environment         warning about PHP ini variables that break isolation
+    interaction         interactive terminal check and the yes/no question
+    pipe                quiet exit when the reader of our output goes away
+  php/                  PHP versions and where they come from
+    version             builds and version selection (static_php for Linux and macOS, windows_php for windows.php.net)
+    variant             the static-php builds, their recorded choice, which one covers an extension set
+    installed           installed versions and the default version
+    selection           the version that applies in a directory, and where it comes from
+    source_build        compiling from php.net: release data, the configure recipe, signature check
+    ini                 line-preserving php.ini editor
+  extensions/           shared, built-in and loaded extensions; enable, disable, applying settings
+    settings            ~/.phpz/config.toml (global extension choices)
+    pecl                finding extension builds on the PECL server, extracting the DLL
+    install             downloading an extension with consent and the remembered checksum
+    build               compiling a PECL extension against a PHP compiled here
+  download/             download with progress and SHA-256 check
+    lock                ~/.phpz/downloads.lock (checksums remembered from first use)
+    consent             the rule for installing without a published checksum
+  project/              finding and reading .php-version and .phpz.toml
+    ini                 the php.ini generated for a project's extension choices
+    shim                the php shim: starts the right version, keeps the link or copy fresh
+  <module>/tests.rs     unit tests of the module (private items stay reachable)
 tests/fixtures/      sample files used by the tests
 ```
 

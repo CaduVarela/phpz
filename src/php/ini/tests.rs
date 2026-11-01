@@ -1,6 +1,6 @@
 use super::*;
 
-const SAMPLE: &str = include_str!("../../tests/fixtures/sample.ini");
+const SAMPLE: &str = include_str!("../../../tests/fixtures/sample.ini");
 
 #[test]
 fn render_round_trips_untouched_content() {

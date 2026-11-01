@@ -4,7 +4,7 @@ use serde::Deserialize;
 
 use super::{parse_version, Build};
 use crate::extensions::extension_name;
-use crate::variant::Variant;
+use crate::php::variant::Variant;
 
 const BASE_URL: &str = "https://dl.static-php.dev/static-php-cli";
 

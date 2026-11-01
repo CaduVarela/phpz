@@ -1,6 +1,7 @@
 use std::fs;
 
-use crate::{installed, paths};
+use crate::php::installed;
+use crate::platform::paths;
 
 /// Remove an installed PHP version
 pub fn run(version: String) {

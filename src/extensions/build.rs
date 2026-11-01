@@ -2,9 +2,13 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::extension_install::Installed;
-use crate::lock::DownloadLock;
-use crate::{consent, download, paths, pecl, source_build};
+use crate::download;
+use crate::download::consent;
+use crate::download::lock::DownloadLock;
+use crate::extensions::install::Installed;
+use crate::extensions::pecl;
+use crate::php::source_build;
+use crate::platform::paths;
 
 /// Compile `name` from its PECL source against a PHP that was compiled here, and install the `.so`.
 pub fn build_package(

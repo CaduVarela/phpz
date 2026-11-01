@@ -1,6 +1,6 @@
 use super::*;
 
-const RELEASES: &str = include_str!("../../../tests/fixtures/releases.json");
+const RELEASES: &str = include_str!("../../../../tests/fixtures/releases.json");
 
 fn find(builds: &[Build], version: &str) -> Option<Build> {
     builds
@@ -50,8 +50,8 @@ fn invalid_json_is_an_error() {
     assert!(parse_releases("[]").is_err());
 }
 
-const LISTING: &str = include_str!("../../../tests/fixtures/archives-listing.html");
-const SBOM: &str = include_str!("../../../tests/fixtures/sbom.cdx.json");
+const LISTING: &str = include_str!("../../../../tests/fixtures/archives-listing.html");
+const SBOM: &str = include_str!("../../../../tests/fixtures/sbom.cdx.json");
 
 fn names(builds: &[Build]) -> Vec<String> {
     builds.iter().map(Build::version_name).collect()

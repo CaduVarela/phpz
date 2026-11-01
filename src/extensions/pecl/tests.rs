@@ -1,8 +1,8 @@
 use super::*;
 use std::io::Write;
 
-const VERSIONS: &str = include_str!("../../tests/fixtures/pecl-xdebug-versions.html");
-const FILES: &str = include_str!("../../tests/fixtures/pecl-xdebug-3.5.3.html");
+const VERSIONS: &str = include_str!("../../../tests/fixtures/pecl-xdebug-versions.html");
+const FILES: &str = include_str!("../../../tests/fixtures/pecl-xdebug-3.5.3.html");
 
 #[test]
 fn only_plain_extension_names_are_valid() {

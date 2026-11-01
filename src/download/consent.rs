@@ -1,4 +1,4 @@
-use crate::interaction;
+use crate::platform::interaction;
 
 /// What to do about a download whose checksum is missing.
 #[derive(Debug, PartialEq)]

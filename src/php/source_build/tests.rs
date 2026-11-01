@@ -1,7 +1,7 @@
 use super::*;
 use std::ffi::OsString;
 
-const RELEASE: &str = include_str!("../../tests/fixtures/php-release-8.3.36.json");
+const RELEASE: &str = include_str!("../../../tests/fixtures/php-release-8.3.36.json");
 
 fn everything(_: &str) -> bool {
     true

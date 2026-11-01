@@ -3,7 +3,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::{paths, project_ini, selection};
+use crate::php::selection;
+use crate::platform::paths;
 
 /// The name the phpz binary is given inside the shims directory.
 const SHIM_NAME: &str = "php";
@@ -75,7 +76,7 @@ fn launch() -> Result<i32, String> {
 
     // Fall back to the version's own settings.
     let ini_directory = match &selection.project {
-        Some(project) if !project.extensions.is_empty() => project_ini::ini_directory(
+        Some(project) if !project.extensions.is_empty() => super::ini::ini_directory(
             &directory,
             &selection.version,
             &project.directory,

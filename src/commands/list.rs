@@ -1,7 +1,7 @@
-use crate::installed;
-use crate::paths;
-use crate::selection::{self, Origin, Selection};
-use crate::variant::{self, Origin as BuildOrigin};
+use crate::php::installed;
+use crate::php::selection::{self, Origin, Selection};
+use crate::php::variant::{self, Origin as BuildOrigin};
+use crate::platform::paths;
 
 /// List installed versions, marking the one that applies here and the default
 pub fn run() {

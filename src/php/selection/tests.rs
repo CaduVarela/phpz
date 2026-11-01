@@ -1,6 +1,6 @@
 use super::*;
+use crate::extensions::settings::ExtensionSettings;
 use crate::project::Pinned;
-use crate::settings::ExtensionSettings;
 
 fn installed() -> Vec<String> {
     ["8.2.35", "8.3.9", "8.3.32", "8.4.27"]

@@ -1,28 +1,9 @@
 mod commands;
-mod consent;
 mod download;
-mod environment;
-mod extension_build;
-mod extension_install;
 mod extensions;
-mod ini;
-mod installed;
-mod interaction;
-mod link;
-mod lock;
-mod paths;
-mod pecl;
-mod pipe;
+mod php;
+mod platform;
 mod project;
-mod project_ini;
-mod selection;
-mod settings;
-mod shell;
-mod shim;
-mod source_build;
-mod user_path;
-mod variant;
-mod version;
 
 use clap::Parser;
 
@@ -39,9 +20,9 @@ struct Cli {
 }
 
 fn main() {
-    pipe::exit_quietly_on_closed_pipe();
-    if shim::invoked_as_shim() {
-        std::process::exit(shim::run());
+    platform::pipe::exit_quietly_on_closed_pipe();
+    if project::shim::invoked_as_shim() {
+        std::process::exit(project::shim::run());
     }
     let cli = Cli::parse();
     cli.command.run();

@@ -3,7 +3,7 @@ mod windows_php;
 
 use std::collections::BTreeSet;
 
-use crate::variant::Variant;
+use crate::php::variant::Variant;
 
 /// (major, minor, patch)
 type Version = (u32, u32, u32);

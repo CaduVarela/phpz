@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::Path;
 
-use crate::lock::DownloadLock;
-use crate::{consent, download, pecl};
+use crate::download;
+use crate::download::consent;
+use crate::download::lock::DownloadLock;
+use crate::extensions::pecl;
 
 pub struct Installed {
     /// The extension release that was installed.
@@ -20,7 +22,7 @@ pub fn install_package(
     allow_unverified: bool,
 ) -> Result<Installed, String> {
     if !cfg!(windows) {
-        return crate::extension_build::build_package(
+        return crate::extensions::build::build_package(
             version_directory,
             php_version,
             name,

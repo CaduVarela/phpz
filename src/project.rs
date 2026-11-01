@@ -1,3 +1,6 @@
+pub mod ini;
+pub mod shim;
+
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -5,8 +8,8 @@ use std::path::{Path, PathBuf};
 use serde::Deserialize;
 
 use crate::extensions::extension_name;
-use crate::pecl;
-use crate::settings::ExtensionSettings;
+use crate::extensions::pecl;
+use crate::extensions::settings::ExtensionSettings;
 
 /// Holds only a version, so tools that already read this file keep working.
 pub const VERSION_FILE: &str = ".php-version";

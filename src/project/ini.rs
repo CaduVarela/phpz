@@ -5,9 +5,9 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use crate::extensions;
-use crate::ini::{IniDocument, PHP_SECTION};
-use crate::paths;
-use crate::settings::ExtensionSettings;
+use crate::extensions::settings::ExtensionSettings;
+use crate::php::ini::{IniDocument, PHP_SECTION};
+use crate::platform::paths;
 
 /// Records the project folder and version a generated directory belongs to.
 const ORIGIN_FILE: &str = "origin";

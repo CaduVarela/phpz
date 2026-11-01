@@ -1,7 +1,8 @@
 use std::path::{Path, PathBuf};
 
+use crate::php::installed;
+use crate::platform::paths;
 use crate::project::{self, Project};
-use crate::{installed, paths};
 
 /// Where the chosen version came from.
 #[derive(Debug, PartialEq, Clone)]

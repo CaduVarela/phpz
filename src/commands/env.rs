@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::paths;
+use crate::platform::paths;
 
 /// Print shell code that puts the active version first on PATH.
 pub fn run() {

@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::paths;
+use crate::platform::paths;
 
 /// Names of installed versions (finished installations only), sorted ascending.
 pub fn installed_versions() -> Result<Vec<String>, String> {

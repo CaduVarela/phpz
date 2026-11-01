@@ -1,10 +1,11 @@
-use crate::environment;
-use crate::installed::find_installed;
-use crate::link;
-use crate::paths;
+use crate::php::installed::find_installed;
+use crate::php::selection::{self, Origin};
+use crate::platform::environment;
+use crate::platform::link;
+use crate::platform::paths;
+use crate::platform::shell;
 use crate::project;
-use crate::selection::{self, Origin};
-use crate::{shell, shim};
+use crate::project::shim;
 
 /// Switch the active PHP version, or the one the project pins when none is given
 pub fn run(version: Option<String>) {

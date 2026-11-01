@@ -7,13 +7,19 @@ use tar::Archive;
 
 use std::collections::BTreeSet;
 
-use crate::settings::Settings;
-use crate::source_build::Signature;
-use crate::variant::{self, Origin, Variant};
-use crate::version::Build;
-use crate::{
-    consent, download, extensions, interaction, paths, shell, shim, source_build, version,
-};
+use crate::download;
+use crate::download::consent;
+use crate::extensions;
+use crate::extensions::settings::Settings;
+use crate::php::source_build;
+use crate::php::source_build::Signature;
+use crate::php::variant::{self, Origin, Variant};
+use crate::php::version;
+use crate::php::version::Build;
+use crate::platform::interaction;
+use crate::platform::paths;
+use crate::platform::shell;
+use crate::project::shim;
 
 const DEFAULT_INI: &str = "\
 ; php.ini managed by phpz
@@ -434,7 +440,7 @@ fn lay_out_source_build(tree: &Path, plan: &source_build::Plan) -> Result<(), St
     fs::create_dir_all(tree.join("conf.d")).map_err(|error| error.to_string())?;
     variant::write_source(tree)?;
 
-    let mut ini = crate::ini::IniDocument::parse(DEFAULT_INI);
+    let mut ini = crate::php::ini::IniDocument::parse(DEFAULT_INI);
     let available = extensions::available_shared(tree);
     for name in plan.shared.iter().filter(|name| **name != "opcache") {
         extensions::enable(&mut ini, name, &available, || Ok(BTreeSet::new()))?;

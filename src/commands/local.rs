@@ -2,7 +2,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 
-use crate::installed;
+use crate::php::installed;
 use crate::project::{self, PROJECT_FILE, VERSION_FILE};
 
 /// Pin the PHP version of the current directory, or show it

@@ -1,10 +1,15 @@
+pub mod build;
+pub mod install;
+pub mod pecl;
+pub mod settings;
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::ini::{IniDocument, PHP_SECTION};
-use crate::settings::{ExtensionSettings, Settings};
+use crate::extensions::settings::{ExtensionSettings, Settings};
+use crate::php::ini::{IniDocument, PHP_SECTION};
 
 /// Extensions PHP loads with `zend_extension` instead of `extension`.
 const ZEND_EXTENSIONS: &[&str] = &["opcache", "xdebug"];
