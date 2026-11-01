@@ -18,6 +18,11 @@ pub struct Build {
 }
 
 impl Build {
+    /// Whether this build is at least `major.minor`.
+    pub fn at_least(&self, major: u32, minor: u32) -> bool {
+        (self.version.0, self.version.1) >= (major, minor)
+    }
+
     /// "MAJOR.MINOR.PATCH"
     pub fn version_name(&self) -> String {
         let (major, minor, patch) = self.version;

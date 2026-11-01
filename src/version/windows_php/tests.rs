@@ -82,7 +82,7 @@ fn files_that_are_not_non_thread_safe_x64_builds_are_ignored() {
 #[test]
 fn archive_listing_keeps_supported_versions_only() {
     let builds = parse_archive_listing(LISTING);
-    assert_eq!(names(&builds), ["7.4.33", "8.0.30", "8.3.12", "8.5.11", "8.5.12"]);
+    assert_eq!(names(&builds), ["7.3.33", "7.4.33", "8.0.30", "8.3.12", "8.5.11", "8.5.12"]);
 }
 
 #[test]
@@ -107,7 +107,7 @@ fn releases_json_entry_wins_over_the_archive_entry_of_the_same_version() {
     let merged = merge(parse_archive_listing(LISTING), parse_releases(RELEASES).unwrap());
     assert_eq!(
         names(&merged),
-        ["7.4.33", "8.0.30", "8.3.12", "8.3.36", "8.4.27", "8.5.11", "8.5.12"]
+        ["7.3.33", "7.4.33", "8.0.30", "8.3.12", "8.3.36", "8.4.27", "8.5.11", "8.5.12"]
     );
 
     let build = find(&merged, "7.4.33").unwrap();

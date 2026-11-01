@@ -140,18 +140,29 @@ fn lay_out_windows_build(build: &Build, directory: &Path) -> Result<(), String> 
     let template = fs::read_to_string(&template_path)
         .map_err(|error| format!("reading {}: {}", template_path.display(), error))?;
 
-    let mut directives = vec!["extension_dir = \"ext\"".to_string()];
-    directives.extend(
-        WINDOWS_DEFAULT_EXTENSIONS
-            .iter()
-            .map(|name| format!("extension={}", name)),
-    );
+    // PHP 7.0 and 7.1 name extensions by DLL ("extension=php_curl.dll"); 7.2 and later use short names.
+    let directives = windows_directives(!build.at_least(7, 2));
     fs::write(directory.join("php.ini"), uncomment_directives(&template, &directives))
         .map_err(|error| format!("writing php.ini: {}", error))
 }
 
+/// The php.ini lines to activate: extension_dir and the default extensions.
+fn windows_directives(uses_dll_names: bool) -> Vec<String> {
+    let mut directives = vec!["extension_dir = \"ext\"".to_string()];
+    directives.extend(WINDOWS_DEFAULT_EXTENSIONS.iter().map(|name| {
+        if uses_dll_names {
+            format!("extension=php_{}.dll", name)
+        } else {
+            format!("extension={}", name)
+        }
+    }));
+    directives
+}
+
 /// Turn `;directive` lines into active `directive` lines, ignoring a trailing `; comment`
-/// when matching. Anything else is left alone.
+/// when matching. PHP 7.0 to 7.2 write `; extension_dir` with a space, so that one directive
+/// also matches that way; other lines must match exactly so prose comments stay comments.
+/// Anything else is left alone.
 fn uncomment_directives(content: &str, directives: &[String]) -> String {
     content
         .split_inclusive('\n')
@@ -160,10 +171,15 @@ fn uncomment_directives(content: &str, directives: &[String]) -> String {
             let is_wanted = text
                 .strip_prefix(';')
                 .map(|rest| rest.split(';').next().unwrap_or("").trim_end())
-                .map(|directive| directives.iter().any(|wanted| wanted == directive))
+                .map(|rest| {
+                    directives.iter().any(|wanted| {
+                        wanted == rest
+                            || (wanted.starts_with("extension_dir") && wanted == rest.trim_start())
+                    })
+                })
                 .unwrap_or(false);
             if is_wanted {
-                line[1..].to_string()
+                line[1..].trim_start().to_string()
             } else {
                 line.to_string()
             }

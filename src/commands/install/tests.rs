@@ -125,3 +125,33 @@ fn the_flag_gives_consent_with_or_without_a_terminal() {
     assert_eq!(consent_for(true, true, false), Consent::Given);
     assert_eq!(consent_for(true, true, true), Consent::Given);
 }
+
+#[test]
+fn old_series_get_dll_names_and_newer_ones_short_names() {
+    assert!(windows_directives(true).contains(&"extension=php_curl.dll".to_string()));
+    assert!(!windows_directives(true).contains(&"extension=curl".to_string()));
+    assert!(windows_directives(false).contains(&"extension=curl".to_string()));
+    assert!(windows_directives(false).contains(&"extension_dir = \"ext\"".to_string()));
+}
+
+#[test]
+fn extension_dir_is_enabled_with_or_without_a_space_after_the_semicolon() {
+    let wanted = directives(&["extension_dir = \"ext\""]);
+    assert_eq!(uncomment_directives("; extension_dir = \"ext\"\n", &wanted), "extension_dir = \"ext\"\n");
+    assert_eq!(uncomment_directives(";extension_dir = \"ext\"\n", &wanted), "extension_dir = \"ext\"\n");
+}
+
+#[test]
+fn a_prose_comment_that_looks_like_an_extension_line_stays_a_comment() {
+    let wanted = directives(&["extension=curl"]);
+    assert_eq!(uncomment_directives("; extension=curl\n", &wanted), "; extension=curl\n");
+}
+
+#[test]
+fn dll_style_lines_with_trailing_comments_are_enabled() {
+    let wanted = directives(&["extension=php_exif.dll"]);
+    assert_eq!(
+        uncomment_directives(";extension=php_exif.dll      ; Must be after mbstring\n", &wanted),
+        "extension=php_exif.dll      ; Must be after mbstring\n"
+    );
+}

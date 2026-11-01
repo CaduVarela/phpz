@@ -8,8 +8,9 @@ const RELEASES_URL: &str = "https://windows.php.net/downloads/releases/releases.
 const DOWNLOAD_BASE_URL: &str = "https://windows.php.net/downloads/releases";
 const ARCHIVES_URL: &str = "https://windows.php.net/downloads/releases/archives/";
 
-/// Older series use another naming scheme for extensions in php.ini, which phpz does not handle.
-const OLDEST_SUPPORTED: Version = (7, 4, 0);
+/// 7.0 is the oldest series that runs with the current Visual C++ redistributable (VC14).
+/// 5.x needs VC11, which a modern machine usually lacks.
+const OLDEST_SUPPORTED: Version = (7, 0, 0);
 
 /// Official builds (non thread safe, x64). The newest release of each series comes from
 /// `releases.json` with its SHA-256; with `include_history` the older patches found in the
