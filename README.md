@@ -8,6 +8,10 @@
   <img alt="Linux, macOS and Windows" src="https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg">
 </p>
 
+<p align="center">
+  <img src="docs/assets/demo.svg" alt="phpz installing PHP 8.3 and using PHP 8.2 inside one project folder" width="720">
+</p>
+
 ## Install
 
 ```bash
@@ -23,15 +27,6 @@ irm https://raw.githubusercontent.com/CaduVarela/phpz/master/install.ps1 | iex
 Or build it yourself with Rust: `cargo install --path . && phpz setup`.
 
 Linux and Windows are tested. macOS builds and passes the tests, but nobody has installed PHP with it yet.
-
-## Use
-
-```bash
-phpz install 8.3          # no sudo, no compiler
-phpz use 8.3              # switch the default
-phpz local 8.2            # or pin this folder to another version
-phpz ext enable intl      # extensions switch like versions do
-```
 
 Everything lives in `~/.phpz`. The PHP your system or web server uses is never touched.
 

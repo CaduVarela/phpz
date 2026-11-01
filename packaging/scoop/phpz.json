@@ -1,0 +1,26 @@
+{
+    "version": "0.5.0",
+    "description": "PHP version manager with per-project versions and extensions",
+    "homepage": "https://github.com/CaduVarela/phpz",
+    "license": "MIT",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/CaduVarela/phpz/releases/download/v0.5.0/phpz-windows-x64.exe#/phpz.exe",
+            "hash": "5690486a0d67ae11471921c536a51c688816d9bc078bcbf1837d5f8f721eea57"
+        }
+    },
+    "bin": "phpz.exe",
+    "post_install": "& \"$dir\\phpz.exe\" setup",
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "https://github.com/CaduVarela/phpz/releases/download/v$version/phpz-windows-x64.exe#/phpz.exe",
+                "hash": {
+                    "url": "$baseurl/SHA256SUMS",
+                    "regex": "$sha256\\s+phpz-windows-x64\\.exe"
+                }
+            }
+        }
+    }
+}

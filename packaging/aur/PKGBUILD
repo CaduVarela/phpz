@@ -1,0 +1,18 @@
+# Maintainer: Carlos Varela <caduvarela@gmail.com>
+pkgname=phpz-bin
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="PHP version manager with per-project versions and extensions"
+arch=('x86_64' 'aarch64')
+url="https://github.com/CaduVarela/phpz"
+license=('MIT')
+provides=('phpz')
+conflicts=('phpz')
+source_x86_64=("phpz-$pkgver-x64::https://github.com/CaduVarela/phpz/releases/download/v$pkgver/phpz-linux-x64")
+source_aarch64=("phpz-$pkgver-arm64::https://github.com/CaduVarela/phpz/releases/download/v$pkgver/phpz-linux-arm64")
+sha256sums_x86_64=('896d2258dc21ba9c5db602450b252b9e47de3eb526eedcdb9e58d2f5feb484ed')
+sha256sums_aarch64=('d92565a84eb8764a22abb08bab25b609aba20783ef2f92ba1f0fed75d7ca8477')
+
+package() {
+  install -Dm755 "$srcdir/phpz-$pkgver-"* "$pkgdir/usr/bin/phpz"
+}
