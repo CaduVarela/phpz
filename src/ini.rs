@@ -36,8 +36,7 @@ fn classify(line: &str) -> LineKind<'_> {
     }
 }
 
-/// Turn the raw text after `=` into the effective value:
-/// surrounding quotes are removed and trailing `; comments` are dropped.
+/// The effective value of the raw text after `=`: unquoted, without trailing comments.
 fn effective_value(raw_value: &str) -> String {
     let mut characters = raw_value.chars();
     if let Some(quote) = characters.next().filter(|c| *c == '"' || *c == '\'') {
@@ -56,7 +55,11 @@ fn effective_value(raw_value: &str) -> String {
 
 impl IniDocument {
     pub fn parse(content: &str) -> Self {
-        let newline = if content.contains("\r\n") { "\r\n" } else { "\n" };
+        let newline = if content.contains("\r\n") {
+            "\r\n"
+        } else {
+            "\n"
+        };
         Self {
             lines: content.lines().map(str::to_string).collect(),
             newline,
@@ -132,9 +135,13 @@ impl IniDocument {
             .collect()
     }
 
-    /// Activate the first commented `;key=value` line of `section` whose value satisfies `matches`.
-    /// The semicolon must be directly followed by the key, so prose comments are never activated.
-    pub fn uncomment_entry(&mut self, section: &str, key: &str, matches: impl Fn(&str) -> bool) -> bool {
+    /// Activate the first commented `;key=value` line whose value satisfies `matches`.
+    pub fn uncomment_entry(
+        &mut self,
+        section: &str,
+        key: &str,
+        matches: impl Fn(&str) -> bool,
+    ) -> bool {
         let mut current_section = String::new();
 
         for index in 0..self.lines.len() {
@@ -145,10 +152,17 @@ impl IniDocument {
             if current_section != section {
                 continue;
             }
-            let Some(rest) = self.lines[index].strip_prefix(';').filter(|rest| rest.starts_with(key)) else {
+            let Some(rest) = self.lines[index]
+                .strip_prefix(';')
+                .filter(|rest| rest.starts_with(key))
+            else {
                 continue;
             };
-            if let LineKind::Entry { key: line_key, raw_value } = classify(rest) {
+            if let LineKind::Entry {
+                key: line_key,
+                raw_value,
+            } = classify(rest)
+            {
                 if line_key == key && matches(&effective_value(raw_value)) {
                     self.lines[index] = rest.to_string();
                     return true;
@@ -158,9 +172,13 @@ impl IniDocument {
         false
     }
 
-    /// Comment out every active `key` line of `section` whose value satisfies `matches`.
-    /// Returns how many lines changed.
-    pub fn comment_out_entries(&mut self, section: &str, key: &str, matches: impl Fn(&str) -> bool) -> usize {
+    /// Comment out every active `key` line whose value satisfies `matches`; returns the count.
+    pub fn comment_out_entries(
+        &mut self,
+        section: &str,
+        key: &str,
+        matches: impl Fn(&str) -> bool,
+    ) -> usize {
         let mut changed = 0;
         for index in self.find_entries(section, key) {
             let value = match classify(&self.lines[index]) {
@@ -175,8 +193,7 @@ impl IniDocument {
         changed
     }
 
-    /// Add `key=value` next to the other `key` lines of `section` (active or commented out),
-    /// or at the end of the section when there are none.
+    /// Add `key=value` next to the other `key` lines, or at the end of the section.
     pub fn add_entry_near(&mut self, section: &str, key: &str, value: &str) {
         let new_line = format!("{}={}", key, value);
         let mut current_section = String::new();
@@ -190,7 +207,10 @@ impl IniDocument {
             if current_section != section {
                 continue;
             }
-            let entry_line = line.strip_prefix(';').filter(|rest| rest.starts_with(key)).unwrap_or(line);
+            let entry_line = line
+                .strip_prefix(';')
+                .filter(|rest| rest.starts_with(key))
+                .unwrap_or(line);
             if let LineKind::Entry { key: line_key, .. } = classify(entry_line) {
                 if line_key == key {
                     anchor = Some(index + 1);
@@ -209,7 +229,12 @@ impl IniDocument {
         match self.section_insertion_index(section) {
             Some(index) => self.lines.insert(index, new_line),
             None => {
-                if self.lines.last().map(|line| !line.trim().is_empty()).unwrap_or(false) {
+                if self
+                    .lines
+                    .last()
+                    .map(|line| !line.trim().is_empty())
+                    .unwrap_or(false)
+                {
                     self.lines.push(String::new());
                 }
                 self.lines.push(format!("[{}]", section));

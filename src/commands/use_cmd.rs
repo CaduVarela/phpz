@@ -25,7 +25,11 @@ fn activate(requested: &str) -> Result<(), String> {
     if let Ok(Some(selection)) = selection::select_here() {
         if let Origin::Project(file) = &selection.origin {
             if selection.version != version {
-                println!("Note: {} pins PHP {} in this folder, which wins over this default.", file.display(), selection.version);
+                println!(
+                    "Note: {} pins PHP {} in this folder, which wins over this default.",
+                    file.display(),
+                    selection.version
+                );
             }
         }
     }

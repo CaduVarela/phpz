@@ -97,7 +97,9 @@ fn uncomment_activates_the_matching_commented_line_only() {
     let mut document = IniDocument::parse(EXTENSIONS);
     assert!(document.uncomment_entry("PHP", "extension", is("curl")));
     assert_eq!(document.values("PHP", "extension"), ["curl", "gd"]);
-    assert!(document.render().contains(";extension=bz2\nextension=curl\nextension=gd\n"));
+    assert!(document
+        .render()
+        .contains(";extension=bz2\nextension=curl\nextension=gd\n"));
 }
 
 #[test]
@@ -113,16 +115,25 @@ fn uncomment_never_activates_prose_comments_or_other_sections() {
 fn uncomment_works_for_zend_extension_keys() {
     let mut document = IniDocument::parse(EXTENSIONS);
     assert!(document.uncomment_entry("PHP", "zend_extension", is("xdebug")));
-    assert_eq!(document.values("PHP", "zend_extension"), ["opcache", "xdebug"]);
+    assert_eq!(
+        document.values("PHP", "zend_extension"),
+        ["opcache", "xdebug"]
+    );
 }
 
 #[test]
 fn comment_out_deactivates_only_the_matching_lines() {
     let mut document = IniDocument::parse(EXTENSIONS);
-    assert_eq!(document.comment_out_entries("PHP", "extension", is("gd")), 1);
+    assert_eq!(
+        document.comment_out_entries("PHP", "extension", is("gd")),
+        1
+    );
     assert!(document.values("PHP", "extension").is_empty());
     assert!(document.render().contains(";extension=gd\n"));
-    assert_eq!(document.comment_out_entries("PHP", "extension", is("gd")), 0);
+    assert_eq!(
+        document.comment_out_entries("PHP", "extension", is("gd")),
+        0
+    );
 }
 
 #[test]
@@ -137,14 +148,19 @@ fn comment_out_then_uncomment_restores_the_file() {
 fn new_entry_goes_after_the_last_line_of_the_same_key() {
     let mut document = IniDocument::parse(EXTENSIONS);
     document.add_entry_near("PHP", "extension", "ffi");
-    assert!(document.render().contains(";extension=mbstring\nextension=ffi\nzend_extension=opcache\n"));
+    assert!(document
+        .render()
+        .contains(";extension=mbstring\nextension=ffi\nzend_extension=opcache\n"));
 }
 
 #[test]
 fn new_entry_without_siblings_goes_to_the_end_of_its_section() {
     let mut document = IniDocument::parse("[PHP]\nmemory_limit=1G\n\n[Date]\nx=1\n");
     document.add_entry_near("PHP", "extension", "ffi");
-    assert_eq!(document.render(), "[PHP]\nmemory_limit=1G\nextension=ffi\n\n[Date]\nx=1\n");
+    assert_eq!(
+        document.render(),
+        "[PHP]\nmemory_limit=1G\nextension=ffi\n\n[Date]\nx=1\n"
+    );
 }
 
 #[test]
@@ -159,5 +175,8 @@ fn extension_edits_keep_crlf_line_endings() {
     let mut document = IniDocument::parse("[PHP]\r\n;extension=curl\r\n");
     document.uncomment_entry("PHP", "extension", is("curl"));
     document.add_entry_near("PHP", "extension", "gd");
-    assert_eq!(document.render(), "[PHP]\r\nextension=curl\r\nextension=gd\r\n");
+    assert_eq!(
+        document.render(),
+        "[PHP]\r\nextension=curl\r\nextension=gd\r\n"
+    );
 }

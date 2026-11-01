@@ -13,7 +13,9 @@ pub fn run() {
 
 fn show() -> Result<(), String> {
     if cfg!(windows) {
-        println!("Builds are a Linux and macOS choice. Windows has one official build per version.");
+        println!(
+            "Builds are a Linux and macOS choice. Windows has one official build per version."
+        );
         return Ok(());
     }
 
@@ -21,7 +23,15 @@ fn show() -> Result<(), String> {
     println!("Builds of PHP for this system (phpz install <version> --variant <name>):\n");
 
     for candidate in Variant::ALL {
-        let name = format!("{}{}", candidate.name(), if candidate == variant::DEFAULT { " (default)" } else { "" });
+        let name = format!(
+            "{}{}",
+            candidate.name(),
+            if candidate == variant::DEFAULT {
+                " (default)"
+            } else {
+                ""
+            }
+        );
         if let Err(reason) = variant::runs_here(candidate) {
             println!("{:<17} not available here: {}", name, reason);
             continue;
@@ -50,7 +60,10 @@ fn show() -> Result<(), String> {
 }
 
 /// What a build has and lacks compared to the default, with long lists cut short.
-fn describe_difference(extensions: &BTreeSet<String>, default_extensions: &BTreeSet<String>) -> String {
+fn describe_difference(
+    extensions: &BTreeSet<String>,
+    default_extensions: &BTreeSet<String>,
+) -> String {
     let adds: Vec<&String> = extensions.difference(default_extensions).collect();
     let lacks: Vec<&String> = default_extensions.difference(extensions).collect();
     if adds.is_empty() && lacks.is_empty() {

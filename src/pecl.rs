@@ -18,7 +18,10 @@ pub struct Package {
 
 /// Extension names are lowercase letters, digits and underscores; nothing else may reach a URL.
 pub fn is_valid_name(name: &str) -> bool {
-    !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_')
 }
 
 /// "8.3.36" is the series (8, 3).
@@ -28,11 +31,12 @@ pub fn series_of(php_version: &str) -> Option<Series> {
 }
 
 fn links(html: &str) -> impl Iterator<Item = &str> {
-    html.split("href=\"").skip(1).filter_map(|rest| rest.split('"').next())
+    html.split("href=\"")
+        .skip(1)
+        .filter_map(|rest| rest.split('"').next())
 }
 
-/// Stable releases (digits and dots only, so no alpha, beta or RC) listed on an extension's page,
-/// newest first. Versions are compared as numbers: 3.10.0 is newer than 3.9.0.
+/// Stable release versions on an extension's page, newest first.
 pub fn stable_versions(html: &str) -> Vec<String> {
     let mut versions: Vec<(Vec<u32>, String)> = links(html)
         .filter_map(|link| {
@@ -40,7 +44,8 @@ pub fn stable_versions(html: &str) -> Vec<String> {
             if !version.chars().all(|c| c.is_ascii_digit() || c == '.') {
                 return None;
             }
-            let numbers: Option<Vec<u32>> = version.split('.').map(|part| part.parse().ok()).collect();
+            let numbers: Option<Vec<u32>> =
+                version.split('.').map(|part| part.parse().ok()).collect();
             Some((numbers?, version.to_string()))
         })
         .collect();
@@ -51,7 +56,10 @@ pub fn stable_versions(html: &str) -> Vec<String> {
 
 /// The non-thread-safe x64 zip for `series` among the files of one release.
 pub fn find_zip(html: &str, extension: &str, version: &str, series: Series) -> Option<String> {
-    let prefix = format!("php_{}-{}-{}.{}-nts-", extension, version, series.0, series.1);
+    let prefix = format!(
+        "php_{}-{}-{}.{}-nts-",
+        extension, version, series.0, series.1
+    );
     links(html)
         .find(|name| name.starts_with(&prefix) && name.ends_with("-x64.zip"))
         .map(str::to_string)
@@ -59,7 +67,8 @@ pub fn find_zip(html: &str, extension: &str, version: &str, series: Series) -> O
 
 /// The page at `url`, or None when the server has no such page.
 fn fetch_listing(url: &str) -> Result<Option<String>, String> {
-    let response = reqwest::blocking::get(url).map_err(|error| format!("failed to reach the PECL server: {}", error))?;
+    let response = reqwest::blocking::get(url)
+        .map_err(|error| format!("failed to reach the PECL server: {}", error))?;
     if response.status() == reqwest::StatusCode::NOT_FOUND {
         return Ok(None);
     }
@@ -74,15 +83,23 @@ fn fetch_listing(url: &str) -> Result<Option<String>, String> {
 pub fn find(extension: &str, series: Series, requested: Option<&str>) -> Result<Package, String> {
     let versions = match requested {
         Some(version) => {
-            if !version.chars().all(|c| c.is_ascii_alphanumeric() || c == '.') || version.is_empty() {
+            if !version
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '.')
+                || version.is_empty()
+            {
                 return Err(format!("invalid version '{}'", version));
             }
             vec![version.to_string()]
         }
         None => {
-            let page = fetch_listing(&format!("{}/{}/", BASE_URL, extension))?.ok_or_else(|| {
-                format!("'{}' is not an extension available for Windows on the PECL server", extension)
-            })?;
+            let page =
+                fetch_listing(&format!("{}/{}/", BASE_URL, extension))?.ok_or_else(|| {
+                    format!(
+                        "'{}' is not an extension available for Windows on the PECL server",
+                        extension
+                    )
+                })?;
             stable_versions(&page)
         }
     };
@@ -103,22 +120,24 @@ pub fn find(extension: &str, series: Series, requested: Option<&str>) -> Result<
         extension,
         series.0,
         series.1,
-        requested.map(|v| format!(" in release {}", v)).unwrap_or_default()
+        requested
+            .map(|v| format!(" in release {}", v))
+            .unwrap_or_default()
     ))
 }
 
-/// Put `php_<name>.dll` from the zip into `ext_directory`. Only that one file is extracted;
-/// documentation, symbols and sample scripts in the package are left alone. A package that also
-/// carries other libraries or programs is refused: the extension would need them to load, and
-/// dropping unknown libraries next to PHP could replace one of its own.
+/// Extract `php_<name>.dll` into `ext_directory`, refusing packages that ship other libraries.
 pub fn install_dll(archive_path: &Path, name: &str, ext_directory: &Path) -> Result<(), String> {
     let wanted = format!("php_{}.dll", name);
     let file = fs::File::open(archive_path).map_err(|error| error.to_string())?;
-    let mut archive = zip::ZipArchive::new(file).map_err(|error| format!("reading archive: {}", error))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|error| format!("reading archive: {}", error))?;
 
     let mut found = None;
     for index in 0..archive.len() {
-        let entry = archive.by_index(index).map_err(|error| format!("reading archive: {}", error))?;
+        let entry = archive
+            .by_index(index)
+            .map_err(|error| format!("reading archive: {}", error))?;
         let entry_name = entry.name().to_string();
         let lower = entry_name.to_lowercase();
 
@@ -139,7 +158,8 @@ pub fn install_dll(archive_path: &Path, name: &str, ext_directory: &Path) -> Res
     let temporary_path = ext_directory.join(format!(".{}.tmp", wanted));
     let mut output = fs::File::create(&temporary_path)
         .map_err(|error| format!("creating {}: {}", temporary_path.display(), error))?;
-    io::copy(&mut entry, &mut output).map_err(|error| format!("extracting {}: {}", wanted, error))?;
+    io::copy(&mut entry, &mut output)
+        .map_err(|error| format!("extracting {}: {}", wanted, error))?;
     drop(output);
     fs::rename(&temporary_path, ext_directory.join(&wanted))
         .map_err(|error| format!("installing {}: {}", wanted, error))

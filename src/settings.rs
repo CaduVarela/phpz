@@ -71,7 +71,9 @@ impl Settings {
     pub fn load() -> Result<Settings, String> {
         let path = Self::path()?;
         match fs::read_to_string(&path) {
-            Ok(text) => Self::parse(&text).map_err(|error| format!("invalid {}: {}", path.display(), error)),
+            Ok(text) => {
+                Self::parse(&text).map_err(|error| format!("invalid {}: {}", path.display(), error))
+            }
             Err(error) if error.kind() == ErrorKind::NotFound => Ok(Settings::default()),
             Err(error) => Err(format!("reading {}: {}", path.display(), error)),
         }
@@ -80,7 +82,8 @@ impl Settings {
     pub fn save(&self) -> Result<(), String> {
         let path = Self::path()?;
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(|error| format!("creating {}: {}", parent.display(), error))?;
+            fs::create_dir_all(parent)
+                .map_err(|error| format!("creating {}: {}", parent.display(), error))?;
         }
         let temporary_path = path.with_extension("toml.tmp");
         fs::write(&temporary_path, self.render())

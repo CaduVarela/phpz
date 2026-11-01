@@ -22,7 +22,12 @@ pub enum Variant {
 pub const DEFAULT: Variant = Variant::Common;
 
 impl Variant {
-    pub const ALL: [Variant; 4] = [Variant::Minimal, Variant::Common, Variant::Bulk, Variant::GnuBulk];
+    pub const ALL: [Variant; 4] = [
+        Variant::Minimal,
+        Variant::Common,
+        Variant::Bulk,
+        Variant::GnuBulk,
+    ];
 
     /// The name used on the command line and in the server's directory.
     pub fn name(self) -> &'static str {
@@ -46,11 +51,21 @@ impl Variant {
 
     /// For clap: a name that is not a build lists the ones that are.
     pub fn parse_argument(text: &str) -> Result<Variant, String> {
-        Variant::parse(text).ok_or_else(|| format!("unknown build '{}'. Choose one of: {}", text, Variant::names()))
+        Variant::parse(text).ok_or_else(|| {
+            format!(
+                "unknown build '{}'. Choose one of: {}",
+                text,
+                Variant::names()
+            )
+        })
     }
 
     pub fn names() -> String {
-        Variant::ALL.iter().map(|variant| variant.name()).collect::<Vec<_>>().join(", ")
+        Variant::ALL
+            .iter()
+            .map(|variant| variant.name())
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 
@@ -63,7 +78,9 @@ fn runs_on(variant: Variant, operating_system: &str, musl: bool) -> Result<(), S
         return Err("the gnu-bulk build exists for Linux only".to_string());
     }
     if musl {
-        return Err("the gnu-bulk build needs glibc, and this system uses musl (Alpine)".to_string());
+        return Err(
+            "the gnu-bulk build needs glibc, and this system uses musl (Alpine)".to_string(),
+        );
     }
     Ok(())
 }
@@ -99,8 +116,7 @@ impl Origin {
     }
 }
 
-/// Where a version directory came from. A missing or unreadable record means the default prebuilt
-/// build, which is what every version installed before builds were recorded is.
+/// Where a version directory came from; no record means the default prebuilt build.
 pub fn read_origin(version_directory: &Path) -> Origin {
     match fs::read_to_string(version_directory.join(FILE_NAME)) {
         Ok(text) if text.trim() == "source" => Origin::Source,
@@ -116,11 +132,15 @@ pub fn write_source(version_directory: &Path) -> Result<(), String> {
 
 pub fn write(version_directory: &Path, variant: Variant) -> Result<(), String> {
     let path = version_directory.join(FILE_NAME);
-    fs::write(&path, format!("{}\n", variant.name())).map_err(|error| format!("writing {}: {}", path.display(), error))
+    fs::write(&path, format!("{}\n", variant.name()))
+        .map_err(|error| format!("writing {}: {}", path.display(), error))
 }
 
 /// The smallest build among `candidates` that has every wanted extension.
-pub fn smallest_covering(candidates: &[(Variant, BTreeSet<String>)], wanted: &BTreeSet<String>) -> Option<Variant> {
+pub fn smallest_covering(
+    candidates: &[(Variant, BTreeSet<String>)],
+    wanted: &BTreeSet<String>,
+) -> Option<Variant> {
     candidates
         .iter()
         .filter(|(_, extensions)| wanted.is_subset(extensions))

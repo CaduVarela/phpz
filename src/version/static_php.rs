@@ -67,7 +67,10 @@ fn parse_builds(entries: &[IndexEntry], variant: Variant, platform: &str) -> Vec
         .iter()
         .filter(|entry| !entry.is_dir)
         .filter_map(|entry| {
-            let version = entry.name.strip_prefix("php-")?.strip_suffix(&file_suffix)?;
+            let version = entry
+                .name
+                .strip_prefix("php-")?
+                .strip_suffix(&file_suffix)?;
             Some(Build {
                 version: parse_version(version)?,
                 url: format!("{}/{}/{}", BASE_URL, variant.name(), entry.name),

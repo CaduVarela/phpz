@@ -1,12 +1,10 @@
-/// Exit quietly when the reader of our output goes away (`phpz list --remote | head -1`),
-/// instead of printing a panic message.
+/// Exit quietly when the reader of our output goes away.
 pub fn exit_quietly_on_closed_pipe() {
     restore_default_sigpipe();
     install_panic_hook();
 }
 
-/// Rust ignores SIGPIPE, which turns a closed pipe into a failed `println!`.
-/// Restoring the default makes the process end silently, like other command line tools.
+/// Restore the default SIGPIPE so a closed pipe ends the process silently.
 #[cfg(unix)]
 fn restore_default_sigpipe() {
     // SAFETY: setting a signal disposition to its default has no memory-safety requirements.

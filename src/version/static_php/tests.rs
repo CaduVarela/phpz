@@ -1,7 +1,11 @@
 use super::*;
 
 fn entry(name: &str, is_dir: bool, size: &str) -> IndexEntry {
-    IndexEntry { name: name.to_string(), is_dir, size: size.to_string() }
+    IndexEntry {
+        name: name.to_string(),
+        is_dir,
+        size: size.to_string(),
+    }
 }
 
 fn index() -> Vec<IndexEntry> {
@@ -41,12 +45,18 @@ fn a_build_knows_its_variant_its_address_and_its_size() {
 fn another_platform_gives_its_own_builds() {
     let builds = parse_builds(&index(), Variant::Common, "macos-aarch64");
     assert_eq!(builds.len(), 1);
-    assert!(builds[0].url.ends_with("php-8.3.32-cli-macos-aarch64.tar.gz"));
+    assert!(builds[0]
+        .url
+        .ends_with("php-8.3.32-cli-macos-aarch64.tar.gz"));
     assert!(parse_builds(&index(), Variant::Common, "linux-riscv64").is_empty());
 }
 
 #[test]
 fn a_missing_size_is_not_shown() {
-    let builds = parse_builds(&[entry("php-8.3.32-cli-linux-x86_64.tar.gz", false, "")], Variant::Common, "linux-x86_64");
+    let builds = parse_builds(
+        &[entry("php-8.3.32-cli-linux-x86_64.tar.gz", false, "")],
+        Variant::Common,
+        "linux-x86_64",
+    );
     assert_eq!(builds[0].size, None);
 }

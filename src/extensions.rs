@@ -9,10 +9,14 @@ use crate::settings::{ExtensionSettings, Settings};
 /// Extensions PHP loads with `zend_extension` instead of `extension`.
 const ZEND_EXTENSIONS: &[&str] = &["opcache", "xdebug"];
 
-/// "php_curl.dll", "C:\php\ext\php_curl.dll", "curl.so" and "curl" are all the extension "curl".
-/// PHP 7.0 to 7.3 call GD "gd2" in php.ini and ship php_gd2.dll, so "gd2" is "gd".
+/// Normalize "php_curl.dll", "curl.so" and "curl" to "curl" (and "gd2" to "gd").
 pub fn extension_name(value: &str) -> String {
-    let file = value.trim().trim_matches('"').rsplit(['/', '\\']).next().unwrap_or("");
+    let file = value
+        .trim()
+        .trim_matches('"')
+        .rsplit(['/', '\\'])
+        .next()
+        .unwrap_or("");
     let lower = file.to_lowercase();
     let without_prefix = lower.strip_prefix("php_").unwrap_or(&lower);
     let stem = without_prefix
@@ -33,20 +37,24 @@ fn key_for(name: &str) -> &'static str {
     }
 }
 
-/// Extensions a version can switch on and off: the DLLs in its `ext` directory (Windows layout),
-/// or the `.so` files of a build compiled here (`lib/php/extensions/<api>/`). A prebuilt static
-/// build has none.
+/// Extensions a version can switch on and off: DLLs in `ext` or compiled `.so` files.
 pub fn available_shared(version_directory: &Path) -> BTreeSet<String> {
     let mut found: BTreeSet<String> = fs::read_dir(version_directory.join("ext"))
         .into_iter()
         .flatten()
         .flatten()
         .filter_map(|entry| entry.file_name().into_string().ok())
-        .filter(|file| file.to_lowercase().starts_with("php_") && file.to_lowercase().ends_with(".dll"))
+        .filter(|file| {
+            file.to_lowercase().starts_with("php_") && file.to_lowercase().ends_with(".dll")
+        })
         .map(|file| extension_name(&file))
         .collect();
 
-    for api_directory in fs::read_dir(version_directory.join("lib/php/extensions")).into_iter().flatten().flatten() {
+    for api_directory in fs::read_dir(version_directory.join("lib/php/extensions"))
+        .into_iter()
+        .flatten()
+        .flatten()
+    {
         found.extend(
             fs::read_dir(api_directory.path())
                 .into_iter()
@@ -68,8 +76,7 @@ pub fn php_executable(version_directory: &Path) -> PathBuf {
     }
 }
 
-/// Everything PHP reports as loaded (`php -m`): enabled shared extensions and built-in ones.
-/// PHP runs with this version's own php.ini, whatever is set in the environment.
+/// Everything PHP reports as loaded (`php -m`).
 pub fn loaded_modules(version_directory: &Path) -> Result<BTreeSet<String>, String> {
     let output = Command::new(php_executable(version_directory))
         .arg("-m")
@@ -117,11 +124,14 @@ pub enum Outcome {
     Unavailable,
 }
 
-/// How a new php.ini line spells an extension. PHP 7.0 and 7.1 name extensions by DLL
-/// ("extension=php_curl.dll"), later versions use short names, and PHP 7.0 to 7.3 call GD "gd2".
+/// How a new php.ini line spells an extension for this PHP version.
 fn entry_value(ini: &IniDocument, name: &str) -> String {
     let text = ini.render();
-    let token = if name == "gd" && text.contains("gd2") { "gd2" } else { name };
+    let token = if name == "gd" && text.contains("gd2") {
+        "gd2"
+    } else {
+        name
+    };
 
     if text.contains("extension=php_") {
         format!("php_{}.dll", token)
@@ -179,7 +189,11 @@ pub fn disable(
     let matches = |value: &str| extension_name(value) == name;
     let changed = ini.comment_out_entries(PHP_SECTION, "extension", matches)
         + ini.comment_out_entries(PHP_SECTION, "zend_extension", matches);
-    Ok(if changed > 0 { Outcome::Changed } else { Outcome::Unchanged })
+    Ok(if changed > 0 {
+        Outcome::Changed
+    } else {
+        Outcome::Unchanged
+    })
 }
 
 #[derive(Debug, PartialEq)]
@@ -199,7 +213,12 @@ pub fn classify(
     let names = |set: Vec<&String>| set.into_iter().cloned().collect::<Vec<String>>();
 
     Listing {
-        enabled: names(available.iter().filter(|name| loaded.contains(*name)).collect()),
+        enabled: names(
+            available
+                .iter()
+                .filter(|name| loaded.contains(*name))
+                .collect(),
+        ),
         failing: names(
             available
                 .iter()
@@ -212,26 +231,37 @@ pub fn classify(
                 .filter(|name| !loaded.contains(*name) && !in_ini.contains(*name))
                 .collect(),
         ),
-        built_in: names(loaded.iter().filter(|name| !available.contains(*name)).collect()),
+        built_in: names(
+            loaded
+                .iter()
+                .filter(|name| !available.contains(*name))
+                .collect(),
+        ),
     }
 }
 
 /// Why an extension was skipped because the version does not have it.
 pub const NOT_AVAILABLE: &str = "not available in this PHP";
 
-/// Of the wanted `names`, those this PHP has neither as a shared extension nor built in.
-/// `loaded` only runs when some name is not a shared extension.
+/// Of the wanted `names`, those this PHP has neither as shared nor built in.
 pub fn missing_extensions(
     names: &[String],
     available: &BTreeSet<String>,
     loaded: impl FnOnce() -> Result<BTreeSet<String>, String>,
 ) -> Result<Vec<String>, String> {
-    let not_shared: Vec<&String> = names.iter().filter(|name| !available.contains(*name)).collect();
+    let not_shared: Vec<&String> = names
+        .iter()
+        .filter(|name| !available.contains(*name))
+        .collect();
     if not_shared.is_empty() {
         return Ok(Vec::new());
     }
     let loaded = loaded()?;
-    Ok(not_shared.into_iter().filter(|name| !loaded.contains(*name)).cloned().collect())
+    Ok(not_shared
+        .into_iter()
+        .filter(|name| !loaded.contains(*name))
+        .cloned()
+        .collect())
 }
 
 /// What applying the global settings to one PHP version did.
@@ -246,7 +276,9 @@ pub struct SyncReport {
 impl SyncReport {
     /// Something was skipped only because the extension is not installed in this PHP.
     pub fn has_unavailable(&self) -> bool {
-        self.skipped.iter().any(|(_, reason)| reason == NOT_AVAILABLE)
+        self.skipped
+            .iter()
+            .any(|(_, reason)| reason == NOT_AVAILABLE)
     }
 
     pub fn changed(&self) -> bool {
@@ -269,8 +301,7 @@ impl SyncReport {
     }
 }
 
-/// Make `ini` follow `settings`. An extension this PHP does not have is skipped, never an error,
-/// because the same settings are applied to every version.
+/// Make `ini` follow `settings`, skipping extensions this PHP does not have.
 pub fn apply_settings(
     ini: &mut IniDocument,
     settings: &ExtensionSettings,
@@ -283,7 +314,9 @@ pub fn apply_settings(
         match enable(ini, name, available, &mut loaded)? {
             Outcome::Changed => report.enabled.push(name.clone()),
             Outcome::Unchanged | Outcome::BuiltIn => {}
-            Outcome::Unavailable => report.skipped.push((name.clone(), NOT_AVAILABLE.to_string())),
+            Outcome::Unavailable => report
+                .skipped
+                .push((name.clone(), NOT_AVAILABLE.to_string())),
         }
     }
     for name in &settings.disable {
@@ -291,16 +324,16 @@ pub fn apply_settings(
             Outcome::Changed => report.disabled.push(name.clone()),
             // Nothing to switch off when this PHP does not have it.
             Outcome::Unchanged | Outcome::Unavailable => {}
-            Outcome::BuiltIn => report
-                .skipped
-                .push((name.clone(), "built into this PHP, cannot be disabled".to_string())),
+            Outcome::BuiltIn => report.skipped.push((
+                name.clone(),
+                "built into this PHP, cannot be disabled".to_string(),
+            )),
         }
     }
     Ok(report)
 }
 
-/// Apply the saved global settings to the PHP in `version_directory` and save its php.ini
-/// if anything changed. None when there are no settings to apply.
+/// Apply the saved global settings to a version's php.ini, saving if anything changed.
 pub fn apply_global_settings(version_directory: &Path) -> Result<Option<SyncReport>, String> {
     let settings = Settings::load()?;
     if settings.extensions.is_empty() {

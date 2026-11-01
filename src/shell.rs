@@ -2,9 +2,8 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use crate::{interaction, paths, shim};
 use crate::user_path as registry_path;
-
+use crate::{interaction, paths, shim};
 
 const BLOCK_START: &str = "# >>> phpz >>>";
 const BLOCK_END: &str = "# <<< phpz <<<";
@@ -65,7 +64,9 @@ impl SetupTarget {
 
     /// The entry phpz 0.2 added to the user PATH, which `--undo` also takes out.
     fn legacy_windows_entry() -> Result<String, String> {
-        Ok(paths::active_bin_directory()?.to_string_lossy().into_owned())
+        Ok(paths::active_bin_directory()?
+            .to_string_lossy()
+            .into_owned())
     }
 
     /// Short name used in messages, e.g. "~/.bashrc".
@@ -177,9 +178,7 @@ pub fn add_block(content: &str) -> Option<String> {
     Some(updated)
 }
 
-/// Content with the body of an existing phpz block replaced by the current one, so a setup made
-/// by an older phpz is brought up to date in place. Ok(None) when it already is, or when there is
-/// no block; an error when the block is not closed.
+/// The content with the phpz block refreshed; None when already current or absent.
 pub fn refresh_block(content: &str) -> Result<Option<String>, String> {
     let lines: Vec<&str> = content.split_inclusive('\n').collect();
     let Some(start) = lines.iter().position(|line| line.trim() == BLOCK_START) else {
@@ -191,15 +190,24 @@ pub fn refresh_block(content: &str) -> Result<Option<String>, String> {
         .map(|offset| start + offset)
         .ok_or("found the start of the phpz block but not its end; fix it by hand")?;
 
-    let body: Vec<&str> = lines[start + 1..end].iter().map(|line| line.trim()).collect();
+    let body: Vec<&str> = lines[start + 1..end]
+        .iter()
+        .map(|line| line.trim())
+        .collect();
     if body == [BLOCK_BODY] {
         return Ok(None);
     }
 
-    let line_ending = if lines[start].ends_with("\r\n") { "\r\n" } else { "\n" };
+    let line_ending = if lines[start].ends_with("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    };
     let new_body = format!("{}{}", BLOCK_BODY, line_ending);
     Ok(Some(
-        [&lines[..=start], &[new_body.as_str()], &lines[end..]].concat().concat(),
+        [&lines[..=start], &[new_body.as_str()], &lines[end..]]
+            .concat()
+            .concat(),
     ))
 }
 
@@ -208,8 +216,7 @@ fn block_is_current(content: &str) -> bool {
     content.contains(BLOCK_START) && matches!(refresh_block(content), Ok(None))
 }
 
-/// Content without the phpz block (and the blank line `add_block` put before it).
-/// Ok(None) when there is no block; an error when the block is not closed.
+/// The content without the phpz block; None when there is none.
 pub fn remove_block(content: &str) -> Result<Option<String>, String> {
     let lines: Vec<&str> = content.split_inclusive('\n').collect();
     let Some(start) = lines.iter().position(|line| line.trim() == BLOCK_START) else {
@@ -226,7 +233,11 @@ pub fn remove_block(content: &str) -> Result<Option<String>, String> {
     } else {
         start
     };
-    Ok(Some([&lines[..first_removed], &lines[end + 1..]].concat().concat()))
+    Ok(Some(
+        [&lines[..first_removed], &lines[end + 1..]]
+            .concat()
+            .concat(),
+    ))
 }
 
 fn read_profile(profile: &Path) -> Result<String, String> {
@@ -293,13 +304,13 @@ pub fn path_note() -> Option<String> {
 }
 
 /// After the first install, offer to put phpz on PATH.
-/// Stays silent in scripts and CI (no terminal), when PATH is already set up,
-/// and after the question was asked once.
 pub fn offer_setup() {
     if path_is_active() || !interaction::is_interactive() {
         return;
     }
-    let Some(target) = SetupTarget::detect() else { return };
+    let Some(target) = SetupTarget::detect() else {
+        return;
+    };
     let Ok(home) = paths::phpz_home() else { return };
     let marker = home.join(PROMPTED_MARKER);
 
