@@ -43,7 +43,7 @@ fn a_bad_request_is_refused_before_asking_php_net() {
 
 #[test]
 fn with_every_library_everything_is_built() {
-    let plan = plan(everything);
+    let plan = plan((8, 3), everything);
     assert!(plan.skipped.is_empty());
     assert_eq!(plan.built_in, ["openssl", "curl", "zlib", "mbstring", "xml", "sqlite", "zip", "gd"]);
     assert_eq!(plan.shared, ["opcache", "intl", "soap", "sodium"]);
@@ -54,7 +54,7 @@ fn with_every_library_everything_is_built() {
 
 #[test]
 fn without_libraries_only_what_needs_none_is_built() {
-    let plan = plan(nothing);
+    let plan = plan((8, 3), nothing);
     assert!(plan.built_in.is_empty());
     assert_eq!(plan.shared, ["opcache"]);
     assert_eq!(plan.skipped.len(), 11, "every optional component");
@@ -64,7 +64,7 @@ fn without_libraries_only_what_needs_none_is_built() {
 
 #[test]
 fn a_missing_library_skips_only_what_needs_it_and_names_the_package() {
-    let plan = plan(|package| package != "icu-i18n");
+    let plan = plan((8, 3), |package| package != "icu-i18n");
     assert_eq!(plan.skipped, [Skipped { name: "intl", hint: "libicu-dev" }]);
     assert!(plan.built_in.contains(&"openssl"));
     assert!(!plan.flags.contains(&"--enable-intl=shared".to_string()));
@@ -72,14 +72,14 @@ fn a_missing_library_skips_only_what_needs_it_and_names_the_package() {
 
 #[test]
 fn an_extension_needing_several_libraries_waits_for_all_of_them() {
-    let plan = plan(|package| package != "freetype2");
+    let plan = plan((8, 3), |package| package != "freetype2");
     assert!(plan.skipped.iter().any(|skipped| skipped.name == "gd" && skipped.hint.contains("libfreetype-dev")));
     assert!(!plan.flags.contains(&"--enable-gd".to_string()));
 }
 
 #[test]
 fn the_flags_start_with_the_ones_that_need_no_library() {
-    let flags = plan(nothing).flags;
+    let flags = plan((8, 3), nothing).flags;
     assert_eq!(flags[0], "--disable-all");
     assert!(flags.contains(&"--with-pdo-mysql=mysqlnd".to_string()));
 }
@@ -133,7 +133,7 @@ fn a_bad_signature_wins_over_a_good_looking_line() {
 
 #[test]
 fn what_an_extension_depends_on_is_always_enabled_with_it() {
-    let flags = plan(everything).flags;
+    let flags = plan((8, 3), everything).flags;
     // With --disable-all, configure refuses these unless the dependency is named (found by a real build).
     for (needs_it, dependency) in [
         ("--enable-dom", "--with-libxml"),
@@ -148,7 +148,7 @@ fn what_an_extension_depends_on_is_always_enabled_with_it() {
 
 #[test]
 fn gd_is_skipped_when_zlib_is_missing_because_it_needs_it() {
-    let plan = plan(|package| package != "zlib");
+    let plan = plan((8, 3), |package| package != "zlib");
     assert!(plan.skipped.iter().any(|skipped| skipped.name == "gd"));
     assert!(!plan.flags.contains(&"--enable-gd".to_string()));
 }
@@ -182,4 +182,17 @@ fn a_log_without_recognizable_errors_shows_its_end() {
     let (what, excerpt) = failure_excerpt("one\ntwo\nthree\n");
     assert_eq!(what, "The end of");
     assert_eq!(excerpt, "one\ntwo\nthree");
+}
+
+#[test]
+fn opcache_is_a_switchable_file_before_8_5_and_part_of_php_from_then_on() {
+    for series in [(7, 4), (8, 1), (8, 4)] {
+        let plan = plan(series, nothing);
+        assert!(plan.shared.contains(&"opcache"), "{:?}", series);
+        assert!(plan.flags.contains(&"--enable-opcache=shared".to_string()), "{:?}", series);
+    }
+    let plan = plan((8, 5), everything);
+    assert!(!plan.shared.contains(&"opcache"));
+    assert!(!plan.flags.iter().any(|flag| flag.contains("opcache")));
+    assert_eq!(plan.shared, ["intl", "soap", "sodium"]);
 }

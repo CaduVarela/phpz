@@ -111,8 +111,10 @@ const CORE_FLAGS: &[&str] = &[
     "--enable-session",
     "--enable-sockets",
     "--enable-tokenizer",
-    "--enable-opcache=shared",
 ];
+
+/// From this series on opcache is always part of PHP, so there is no `opcache.so` to switch.
+const OPCACHE_ALWAYS_BUILT_IN_FROM: (u32, u32) = (8, 5);
 
 /// Compiled in when the libraries are there.
 const BUILT_IN: &[Component] = &[
@@ -143,9 +145,6 @@ const SHARED: &[Component] = &[
     Component { name: "sodium", flags: &["--with-sodium=shared"], packages: &["libsodium"], hint: "libsodium-dev" },
 ];
 
-/// Shared extensions that are always built (they need nothing from the system).
-const SHARED_WITHOUT_LIBRARIES: &[&str] = &["opcache"];
-
 #[derive(Debug, PartialEq)]
 pub struct Skipped {
     pub name: &'static str,
@@ -161,11 +160,17 @@ pub struct Plan {
     pub skipped: Vec<Skipped>,
 }
 
-pub fn plan(has_package: impl Fn(&str) -> bool) -> Plan {
+pub fn plan(series: (u32, u32), has_package: impl Fn(&str) -> bool) -> Plan {
     let mut flags: Vec<String> = CORE_FLAGS.iter().map(|flag| flag.to_string()).collect();
     let mut built_in = Vec::new();
-    let mut shared: Vec<&'static str> = SHARED_WITHOUT_LIBRARIES.to_vec();
+    let mut shared: Vec<&'static str> = Vec::new();
     let mut skipped = Vec::new();
+
+    // Needs nothing from the system. Switchable as a .so until it became part of PHP itself.
+    if series < OPCACHE_ALWAYS_BUILT_IN_FROM {
+        flags.push("--enable-opcache=shared".to_string());
+        shared.push("opcache");
+    }
 
     let mut consider = |component: &Component, is_shared: bool| {
         if component.packages.iter().all(|package| has_package(package)) {
