@@ -66,3 +66,11 @@ pub fn active_version() -> Result<Option<String>, String> {
         Err(error) => Err(format!("reading {}: {}", link.display(), error)),
     }
 }
+
+/// Path of the active version's php.ini.
+pub fn active_ini_path() -> Result<std::path::PathBuf, String> {
+    match active_version()? {
+        Some(version) => Ok(paths::versions_directory()?.join(version).join("php.ini")),
+        None => Err("no PHP version is active. Run 'phpz use <version>'.".to_string()),
+    }
+}
