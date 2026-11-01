@@ -57,5 +57,27 @@ pub fn require(
     }
 }
 
+/// Get consent to build from a source signed by a key phpz does not know.
+pub fn require_known_signer(fingerprint: &str, allow_unverified: bool) -> Result<(), String> {
+    if allow_unverified {
+        return Ok(());
+    }
+    let message = format!(
+        "The source is signed by key {}, which is in the php.net keyring but not among the keys phpz knows.",
+        fingerprint
+    );
+    if !interaction::is_interactive() {
+        return Err(format!(
+            "{} Pass --allow-unverified to build anyway.",
+            message
+        ));
+    }
+    eprintln!("{}", message);
+    match interaction::confirm("Build it anyway?", false) {
+        Some(true) => Ok(()),
+        _ => Err("installation cancelled".to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests;

@@ -267,3 +267,23 @@ fn opcache_is_a_switchable_file_before_8_5_and_part_of_php_from_then_on() {
     assert!(!plan.flags.iter().any(|flag| flag.contains("opcache")));
     assert_eq!(plan.shared, ["intl", "soap", "sodium"]);
 }
+
+#[test]
+fn the_signing_fingerprint_is_the_primary_key_of_a_valid_signature() {
+    let status = "[GNUPG:] GOODSIG 74E44BC9067701A5 Daniel\n[GNUPG:] VALIDSIG 1111AAAA 2026-01-01 1 0 4 0 1 10 00 d95c03bc702be9515344ae3374e44bc9067701a5\n";
+    assert_eq!(
+        signing_fingerprint(status).as_deref(),
+        Some("D95C03BC702BE9515344AE3374E44BC9067701A5")
+    );
+    assert_eq!(signing_fingerprint("[GNUPG:] BADSIG X"), None);
+}
+
+#[test]
+fn every_pinned_fingerprint_is_forty_uppercase_hex_digits() {
+    for fingerprint in RELEASE_MANAGER_FINGERPRINTS {
+        assert_eq!(fingerprint.len(), 40);
+        assert!(fingerprint
+            .chars()
+            .all(|c| c.is_ascii_digit() || ('A'..='F').contains(&c)));
+    }
+}
