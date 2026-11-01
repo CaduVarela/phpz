@@ -52,3 +52,11 @@ fn removing_without_a_block_changes_nothing() {
 fn unclosed_block_is_an_error_and_is_not_touched() {
     assert!(remove_block("x\n# >>> phpz >>>\nexport PATH=a\n").is_err());
 }
+
+#[test]
+fn home_directory_is_shown_as_tilde() {
+    let home = Path::new("/home/user");
+    assert_eq!(tilde_path_with_home(Path::new("/home/user/.bashrc"), Some(home)), "~/.bashrc");
+    assert_eq!(tilde_path_with_home(Path::new("/etc/profile"), Some(home)), "/etc/profile");
+    assert_eq!(tilde_path_with_home(Path::new("/etc/profile"), None), "/etc/profile");
+}

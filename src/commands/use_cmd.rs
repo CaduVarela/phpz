@@ -24,7 +24,9 @@ fn activate(requested: &str) -> Result<(), String> {
     if !shell::path_is_active() {
         match Shell::detect() {
             Some(shell) if shell::is_configured(&shell) => {
-                println!("Note: open a new terminal to pick up the change.")
+                if let Ok(profile) = shell.profile_path() {
+                    println!("Note: {}", shell::apply_hint(&profile));
+                }
             }
             _ => println!("Note: run 'phpz setup' to add phpz to your PATH."),
         }

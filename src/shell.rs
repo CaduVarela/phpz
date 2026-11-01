@@ -40,6 +40,26 @@ impl Shell {
     }
 }
 
+/// Path with the home directory written as "~".
+fn tilde_path_with_home(path: &Path, home: Option<&Path>) -> String {
+    match home.and_then(|home| path.strip_prefix(home).ok()) {
+        Some(rest) => format!("~/{}", rest.display()),
+        None => path.display().to_string(),
+    }
+}
+
+pub fn tilde_path(path: &Path) -> String {
+    tilde_path_with_home(path, dirs::home_dir().as_deref())
+}
+
+/// How to make a freshly added block take effect in the current terminal.
+pub fn apply_hint(profile: &Path) -> String {
+    format!(
+        "Open a new terminal or run: source {}",
+        tilde_path(profile)
+    )
+}
+
 /// Content with the phpz block appended, or None when the block is already there.
 pub fn add_block(content: &str) -> Option<String> {
     if content.contains(BLOCK_START) {
@@ -158,7 +178,7 @@ pub fn offer_setup() {
     }
 
     match configure(&shell) {
-        Ok(_) => println!("Updated {}. Open a new terminal to apply it.", profile.display()),
+        Ok(_) => println!("Updated {}. {}", tilde_path(&profile), apply_hint(&profile)),
         Err(error) => eprintln!("Error: {}", error),
     }
 }

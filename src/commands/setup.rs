@@ -17,17 +17,17 @@ fn setup(undo: bool) -> Result<(), String> {
 
     if undo {
         if shell::unconfigure(&shell)? {
-            println!("Removed phpz from {}. Open a new terminal to apply it.", profile.display());
+            println!("Removed phpz from {}. Open a new terminal to apply it.", shell::tilde_path(&profile));
         } else {
-            println!("phpz is not set up in {}.", profile.display());
+            println!("phpz is not set up in {}.", shell::tilde_path(&profile));
         }
         return Ok(());
     }
 
     if shell::configure(&shell)? {
-        println!("Updated {}. Open a new terminal to apply it.", profile.display());
+        println!("Updated {}. {}", shell::tilde_path(&profile), shell::apply_hint(&profile));
     } else {
-        println!("phpz is already set up in {}.", profile.display());
+        println!("phpz is already set up in {}.", shell::tilde_path(&profile));
     }
     Ok(())
 }
