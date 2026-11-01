@@ -11,9 +11,8 @@ Type "phpz install 8.3" Enter
 Sleep 6s
 Type "phpz use 8.3" Enter
 Sleep 1s
-Type "cd api && phpz local 8.2" Enter
+Type "mkdir -p shop && cd shop" Enter
+Type "phpz local 8.2" Enter
 Sleep 1s
-Type "php -v | head -1" Enter
-Sleep 1.5s
-Type "cd .. && php -v | head -1" Enter
+Type "php -v" Enter
 Sleep 3s
