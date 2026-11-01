@@ -42,13 +42,21 @@ Then add this line to your `~/.bashrc` or `~/.zshrc` so the active PHP version i
 eval "$(phpz env)"
 ```
 
+Optionally enable shell completion (bash example):
+
+```bash
+phpz completions bash > ~/.local/share/bash-completion/completions/phpz
+```
+
 ---
 
 ## Usage
 
 ```bash
+phpz ls-remote          # list versions available for download (--all for every patch)
 phpz install 8.3        # install the latest 8.3.x (also accepts "8" or "8.3.9")
 phpz list               # list installed versions, marking the active one
+phpz uninstall 8.3.32   # remove an installed version (exact version, not the active one)
 phpz use 8.3            # switch the active version
 phpz current            # show the active version
 phpz reset              # deactivate phpz's PHP (removes the "current" link)
@@ -56,6 +64,8 @@ phpz reset              # deactivate phpz's PHP (removes the "current" link)
 phpz config get memory_limit
 phpz config set memory_limit 512M
 phpz config remove memory_limit
+
+phpz completions bash   # also zsh, fish, elvish and powershell
 ```
 
 `phpz config` edits the `php.ini` of the active version. Only the line you change is touched: comments, ordering and repeated keys such as `extension=` are preserved. Values are written exactly as given, so quote them yourself when you need a string (`phpz config set error_log '"/tmp/php errors.log"'`).
@@ -94,7 +104,7 @@ See [docs/DESIGN.md](docs/DESIGN.md) for the design and its trade-offs.
 
 - Windows support, using the official builds from windows.php.net.
 - Download integrity verification.
-- Extension management (`phpz ext`), pending support for builds that can load external extensions.
+- Extension management (`phpz ext`), pending support for builds that can load external extensions. The command exists but currently exits with an explanatory error.
 - `php.ini` profiles (`phpz config use dev`).
 
 ---
