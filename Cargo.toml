@@ -1,6 +1,6 @@
 [package]
 name = "phpz"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Carlos Varela <caduvarela@gmail.com>"]
 description = "PHP version manager with per-project versions and extensions. No sudo, no compiler."

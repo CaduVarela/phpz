@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-01
+
+Composer comes with phpz, and it runs on the PHP of each project.
+
 ### Added
 
 - Composer. `phpz setup` (unless a `composer` is already on `PATH`) and `phpz composer install` download it, checked against the SHA-256 getcomposer.org publishes, and the `composer` in the shims folder runs it on the PHP of the current folder. PHP before 7.2.5 gets the Composer 2.2 long-term support line.
