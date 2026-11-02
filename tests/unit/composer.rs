@@ -52,3 +52,35 @@ fn the_checksum_is_the_hash_in_the_published_file() {
     assert_eq!(checksum_from("<html>not found</html>"), None);
     assert_eq!(checksum_from(""), None);
 }
+
+#[cfg(unix)]
+mod user_composer {
+    use super::*;
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn program(directory: &std::path::Path, name: &str, mode: u32) {
+        fs::create_dir_all(directory).unwrap();
+        let path = directory.join(name);
+        fs::write(&path, "#!/bin/sh\n").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(mode)).unwrap();
+    }
+
+    #[test]
+    fn a_composer_of_the_user_is_found_but_not_the_one_in_the_shims_folder() {
+        let root = tempfile::tempdir().unwrap();
+        let shims = root.path().join("shims");
+        let first = root.path().join("first");
+        let second = root.path().join("second");
+        program(&shims, "composer", 0o755);
+        program(&first, "composer", 0o644);
+        program(&second, "composer", 0o755);
+        let path = std::env::join_paths([&shims, &first, &second]).unwrap();
+
+        assert_eq!(
+            find_in_path(&path, &shims, &["composer"]),
+            Some(second.join("composer"))
+        );
+        assert_eq!(find_in_path(&path, &shims, &["composer.exe"]), None);
+    }
+}

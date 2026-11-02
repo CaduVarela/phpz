@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -160,8 +161,53 @@ pub fn ensure_for(version: &str) {
     }
 }
 
+/// The first program with one of `names` in a `PATH`-style list, ignoring the `skip` folder.
+pub fn find_in_path(path: &OsStr, skip: &Path, names: &[&str]) -> Option<PathBuf> {
+    std::env::split_paths(path)
+        .filter(|directory| directory != skip)
+        .flat_map(|directory| names.iter().map(move |name| directory.join(name)))
+        .find(|candidate| is_program(candidate))
+}
+
+#[cfg(unix)]
+fn is_program(path: &Path) -> bool {
+    use std::os::unix::fs::PermissionsExt;
+    fs::metadata(path)
+        .map(|meta| meta.is_file() && meta.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_program(path: &Path) -> bool {
+    path.is_file()
+}
+
+/// A Composer the user already has, outside phpz's own shims folder.
+fn existing_composer() -> Option<PathBuf> {
+    let names: &[&str] = if cfg!(windows) {
+        &["composer.exe", "composer.bat", "composer.cmd"]
+    } else {
+        &["composer"]
+    };
+    find_in_path(
+        &std::env::var_os("PATH")?,
+        &paths::shims_directory().ok()?,
+        names,
+    )
+}
+
 /// Best effort: a failed Composer download never fails what the user asked for.
+/// A Composer the user already has is left alone; `phpz composer install` replaces it on request.
 pub fn install_if_missing() {
+    if !any_installed() {
+        if let Some(existing) = existing_composer() {
+            println!(
+                "Composer found at {}, so phpz leaves it alone. It runs on the PHP of each project through the php shim. 'phpz composer install' gives you one managed by phpz.",
+                existing.display()
+            );
+            return;
+        }
+    }
     if let Err(error) = install_for_installed_versions(false) {
         eprintln!(
             "Note: could not install Composer ({}). Run 'phpz composer install' to try again.",

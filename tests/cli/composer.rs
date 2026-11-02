@@ -230,3 +230,66 @@ fn an_old_php_gets_the_long_term_support_line() {
         .join("composer-2.phar")
         .exists());
 }
+
+/// `phpz setup` in a throwaway home, with `PATH` limited to the folders given.
+fn setup(home: &Path, path: &str, base: &str) -> Output {
+    let profile_home = tempfile::tempdir().unwrap();
+    let output = phpz(
+        home,
+        &["setup"],
+        &[
+            ("HOME", &profile_home.path().display().to_string()),
+            ("SHELL", "/bin/bash"),
+            ("PATH", path),
+            ("PHPZ_COMPOSER_URL", base),
+        ],
+    );
+    output
+}
+
+#[test]
+fn setup_leaves_a_composer_the_user_already_has() {
+    let home = tempfile::tempdir().unwrap();
+    let theirs = tempfile::tempdir().unwrap();
+    let program = theirs.path().join("composer");
+    fs::write(&program, "#!/bin/sh\n").unwrap();
+    fs::set_permissions(&program, fs::Permissions::from_mode(0o755)).unwrap();
+    let base = serve(vec![]);
+
+    let output = setup(home.path(), &theirs.path().display().to_string(), &base);
+
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(
+        out(&output).contains("Composer found at"),
+        "{}",
+        out(&output)
+    );
+    assert!(!home.path().join("composer").exists());
+    assert!(!home.path().join("shims").join("composer").exists());
+}
+
+#[test]
+fn setup_installs_composer_when_the_user_has_none() {
+    let home = tempfile::tempdir().unwrap();
+    let nothing = tempfile::tempdir().unwrap();
+    let phar = b"the phar".to_vec();
+    let hash = format!("{:x}", Sha256::digest(&phar));
+    let base = serve(vec![
+        ("/versions", versions_list()),
+        ("/download/2.9.9/composer.phar", phar),
+        (
+            "/download/2.9.9/composer.phar.sha256sum",
+            format!("{}  composer.phar\n", hash).into_bytes(),
+        ),
+    ]);
+
+    let output = setup(home.path(), &nothing.path().display().to_string(), &base);
+
+    assert!(output.status.success(), "{}", err(&output));
+    assert!(home
+        .path()
+        .join("composer")
+        .join("composer-2.phar")
+        .exists());
+    assert!(home.path().join("shims").join("composer").exists());
+}
