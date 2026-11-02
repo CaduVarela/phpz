@@ -29,5 +29,6 @@ fn setup(undo: bool) -> Result<(), String> {
     } else {
         println!("phpz is already set up in {}.", description);
     }
+    crate::composer::install_if_missing();
     Ok(())
 }

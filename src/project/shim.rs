@@ -3,13 +3,15 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::composer;
 use crate::php::selection;
 use crate::platform::paths;
 
-/// The name the phpz binary is given inside the shims directory.
-const SHIM_NAME: &str = "php";
+/// The names the phpz binary is given inside the shims directory.
+const PHP_SHIM: &str = "php";
+const COMPOSER_SHIM: &str = "composer";
 
-/// Whether this process was started under the name `php`.
+/// Whether this process was started under the name `php` or `composer`.
 pub fn invoked_as_shim() -> bool {
     std::env::args_os()
         .next()
@@ -18,10 +20,14 @@ pub fn invoked_as_shim() -> bool {
 }
 
 pub fn is_shim_name(name: &OsStr) -> bool {
-    Path::new(name)
-        .file_stem()
-        .map(|stem| stem.eq_ignore_ascii_case(SHIM_NAME))
-        .unwrap_or(false)
+    shim_name(name).is_some()
+}
+
+fn shim_name(name: &OsStr) -> Option<&'static str> {
+    let stem = Path::new(name).file_stem()?;
+    [PHP_SHIM, COMPOSER_SHIM]
+        .into_iter()
+        .find(|shim| stem.eq_ignore_ascii_case(shim))
 }
 
 /// How to start the php of one version.
@@ -93,6 +99,10 @@ fn launch() -> Result<i32, String> {
     let plan = launch_plan(&directory, &ini_directory, cfg!(windows), has_libexec);
 
     let mut command = Command::new(&plan.program);
+    let invoked_as = std::env::args_os().next().and_then(|name| shim_name(&name));
+    if invoked_as == Some(COMPOSER_SHIM) {
+        command.arg(composer::phar_for(&selection.version)?);
+    }
     command.args(std::env::args_os().skip(1));
     for (name, value) in &plan.set {
         command.env(name, value);
@@ -118,19 +128,23 @@ fn start(mut command: Command, program: &Path) -> Result<i32, String> {
     Ok(status.code().unwrap_or(1))
 }
 
-/// Make sure the shims directory holds a `php` that is this binary.
+/// Make sure the shims directory holds a `php` that is this binary, and a `composer` once one is installed.
 pub fn ensure() -> Result<(), String> {
     let directory = paths::shims_directory()?;
     fs::create_dir_all(&directory)
         .map_err(|error| format!("creating {}: {}", directory.display(), error))?;
     let target = std::env::current_exe()
         .map_err(|error| format!("could not find the phpz binary: {}", error))?;
-    install(&target, &directory)
+    install(&target, &directory, PHP_SHIM)?;
+    if composer::any_installed() {
+        install(&target, &directory, COMPOSER_SHIM)?;
+    }
+    Ok(())
 }
 
 #[cfg(unix)]
-fn install(target: &Path, directory: &Path) -> Result<(), String> {
-    let link = directory.join(SHIM_NAME);
+fn install(target: &Path, directory: &Path, name: &str) -> Result<(), String> {
+    let link = directory.join(name);
     if fs::read_link(&link)
         .map(|existing| existing == target)
         .unwrap_or(false)
@@ -147,8 +161,8 @@ fn install(target: &Path, directory: &Path) -> Result<(), String> {
 }
 
 #[cfg(windows)]
-fn install(target: &Path, directory: &Path) -> Result<(), String> {
-    let copy = directory.join(format!("{}.exe", SHIM_NAME));
+fn install(target: &Path, directory: &Path, name: &str) -> Result<(), String> {
+    let copy = directory.join(format!("{}.exe", name));
     let up_to_date = match (fs::metadata(&copy), fs::metadata(target)) {
         (Ok(have), Ok(want)) => {
             have.len() == want.len()

@@ -332,7 +332,10 @@ pub fn offer_setup() {
     }
 
     match target.configure() {
-        Ok(_) => println!("Updated {}. {}", target.description(), target.apply_hint()),
+        Ok(_) => {
+            println!("Updated {}. {}", target.description(), target.apply_hint());
+            crate::composer::install_if_missing();
+        }
         Err(error) => eprintln!("Error: {}", error),
     }
 }
