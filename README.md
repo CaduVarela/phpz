@@ -53,6 +53,7 @@ Run `php` inside that folder and you get PHP 8.3 with those extensions. Everywhe
 | `phpz local <version>` | pin the current folder |
 | `phpz ext list \| enable \| disable \| install` | manage extensions |
 | `phpz config set <key> <value>` | edit one `php.ini` setting |
+| `phpz composer install` | install or update Composer (`phpz setup` does it too) |
 | `phpz current` | what applies here |
 
 The full list is in the [guide](docs/GUIDE.md).

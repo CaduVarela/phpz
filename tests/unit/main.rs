@@ -1,4 +1,5 @@
 mod commands;
+mod composer;
 mod download;
 mod extensions;
 mod php;

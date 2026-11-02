@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::commands::ext;
+use crate::composer;
 use crate::download;
 use crate::download::consent;
 use crate::extensions;
@@ -265,6 +266,7 @@ fn install(
     }
 
     println!("Successfully installed PHP {}", resolved_version);
+    composer::ensure_for(&resolved_version);
     let _ = shim::ensure();
     // The question belongs to a first install, not to moving a version to another build.
     if !replacing {
@@ -446,6 +448,7 @@ fn install_from_source(
         "Successfully installed PHP {} (compiled from source)",
         release.version
     );
+    composer::ensure_for(&release.version);
     let _ = shim::ensure();
     if !replacing {
         shell::offer_setup();

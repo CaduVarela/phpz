@@ -4,8 +4,16 @@ use std::path::Path;
 use std::path::PathBuf;
 
 #[test]
-fn only_a_program_named_php_is_the_shim() {
-    for name in ["php", "php.exe", "PHP.EXE", "/home/me/.phpz/shims/php"] {
+fn only_a_program_named_php_or_composer_is_a_shim() {
+    for name in [
+        "php",
+        "php.exe",
+        "PHP.EXE",
+        "/home/me/.phpz/shims/php",
+        "composer",
+        "composer.exe",
+        "/home/me/.phpz/shims/composer",
+    ] {
         assert!(is_shim_name(OsStr::new(name)), "{}", name);
     }
     for name in [

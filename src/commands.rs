@@ -1,4 +1,5 @@
 pub mod completions;
+pub mod composer;
 pub mod config;
 pub mod current;
 pub mod env;
@@ -115,6 +116,11 @@ pub enum Commands {
         #[command(subcommand)]
         command: config::ConfigCommands,
     },
+    /// Install Composer; the `composer` command then runs on the PHP of each project
+    Composer {
+        #[command(subcommand)]
+        command: composer::ComposerCommands,
+    },
     /// Manage PHP extensions (not available yet)
     Ext {
         #[command(subcommand)]
@@ -152,6 +158,7 @@ impl Commands {
             Commands::Setup { undo } => setup::run(undo),
             Commands::Completions { shell } => completions::run(shell),
             Commands::Config { command } => command.run(),
+            Commands::Composer { command } => command.run(),
             Commands::Ext { command } => command.run(),
         }
     }

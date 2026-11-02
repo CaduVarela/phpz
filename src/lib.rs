@@ -1,6 +1,7 @@
 use clap::Parser;
 
 pub mod commands;
+pub mod composer;
 pub mod download;
 pub mod extensions;
 pub mod php;
