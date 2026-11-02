@@ -12,8 +12,9 @@ impl ComposerCommands {
     pub fn run(self) -> Result<(), String> {
         match self {
             ComposerCommands::Install => {
-                composer::install_for_installed_versions(true)?;
-                crate::project::shim::ensure()
+                let result = composer::install_for_installed_versions(true);
+                crate::project::shim::ensure()?;
+                result
             }
         }
     }

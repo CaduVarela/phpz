@@ -58,7 +58,7 @@ phpz reset              # deactivate phpz's PHP (removes the "current" link)
 phpz setup              # add phpz to your PATH (bash and zsh, or the user PATH on Windows)
 phpz setup --undo       # remove it again
 phpz env                # print the line that puts phpz on PATH for the current shell
-phpz composer install  # install Composer, or update it (phpz setup does this the first time)
+phpz composer install   # install Composer, or update it (phpz setup does this the first time)
 
 phpz config get memory_limit
 phpz config set memory_limit 512M
@@ -101,7 +101,7 @@ Not everything compiles: PHP 7.4 fails with the OpenSSL 3 that current distribut
 
 **Per-project versions.** A project can say which PHP it needs. phpz looks for a `.php-version` (just a version such as `8.2`, `8.2.34` or `v8.2`, the same file other version managers read) or a `.phpz.toml` in the current folder and then in each parent folder, and uses the nearest one. `.phpz.toml` holds `php = "8.2"` and, later, the project's extensions, and wins over a `.php-version` in the same folder. A version that is not installed is an error that names the file and says what to run, never a silent fallback to another PHP. `phpz current`, `list`, `which`, `config` and `ext` follow the project, and so does the plain `php` command: `phpz setup` puts `~/.phpz/shims` (on Windows, `%USERPROFILE%\.phpz\shims`) on your `PATH`, and the `php` in it is phpz itself, which finds the version for the folder it runs in and starts that PHP. It starts it with that version's own `php.ini` and, on Windows, without a `PHP_INI_SCAN_DIR` exported by another PHP such as Scoop's, which would otherwise make extensions load twice. Arguments and the exit code pass through unchanged.
 
-**Composer.** `phpz setup` also downloads Composer, checked against the SHA-256 getcomposer.org publishes, and `phpz composer install` does it again to update it. The `composer` in the shims folder runs it on the PHP that applies in the current folder, so a project that pins PHP 8.2 gets Composer on PHP 8.2 and its dependencies resolve for it. phpz keeps the newest Composer 2 for PHP 7.2.5 and newer, and the 2.2 long-term support line for older PHP (which Composer 2.3 and later no longer run on); installing an older PHP adds that line once you use Composer. If the download fails, setup says so and carries on, and a `composer` of your own keeps working until one is installed here. The Composer version is not pinned per project.
+**Composer.** `phpz setup` also downloads Composer, checked against the SHA-256 getcomposer.org publishes, and `phpz composer install` does it again to update it. The `composer` in the shims folder runs it on the PHP that applies in the current folder, so a project that pins PHP 8.2 gets Composer on PHP 8.2 and its dependencies resolve for it. phpz keeps the newest Composer 2 for PHP 7.2.5 and newer, and the 2.2 long-term support line for older PHP (which Composer 2.3 and later no longer run on); installing an older PHP adds that line once you use Composer. Like the `php` in the same folder, the `composer` there takes over the name once Composer is installed, so one of your own further down `PATH` is no longer the one that runs. If the download fails, setup says so and carries on, and your own keeps working until one is installed here. The Composer version is not pinned per project.
 
 **Per-project extensions.** A `.phpz.toml` can also choose extensions for the project:
 

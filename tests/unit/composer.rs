@@ -15,7 +15,8 @@ fn old_php_gets_the_long_term_support_line_and_the_rest_the_newest() {
     assert_eq!(channel_for_version("7.2.5"), Some("2"));
     assert_eq!(channel_for_version("7.2.4"), Some("2.2"));
     assert_eq!(channel_for_version("5.6.40"), Some("2.2"));
-    assert_eq!(channel_for_version("5.2.17"), None);
+    assert_eq!(channel_for_version("5.3.2"), Some("2.2"));
+    assert_eq!(channel_for_version("5.3.1"), None);
 }
 
 #[test]

@@ -6,7 +6,7 @@ use crate::php::installed;
 use crate::platform::paths;
 
 /// Composer release lines, newest first, with the oldest PHP each runs on (7.2.5 is 70205).
-const CHANNELS: &[(&str, u32)] = &[("2", 70205), ("2.2", 50300)];
+const CHANNELS: &[(&str, u32)] = &[("2", 70205), ("2.2", 50302)];
 
 const DEFAULT_BASE_URL: &str = "https://getcomposer.org";
 
@@ -47,7 +47,10 @@ pub fn phar_for(version: &str) -> Result<PathBuf, String> {
     if path.is_file() {
         Ok(path)
     } else {
-        Err("Composer is not installed here. Run 'phpz composer install'.".to_string())
+        Err(format!(
+            "Composer {} (the line for PHP {}) is not installed. Run 'phpz composer install'.",
+            channel, version
+        ))
     }
 }
 
@@ -93,6 +96,9 @@ pub fn install(channel: &str) -> Result<(), String> {
     let versions = get_text(&format!("{}/versions", base))?;
     let path = download_path(&versions, channel)
         .ok_or_else(|| format!("getcomposer.org lists no Composer {}", channel))?;
+    if !path.starts_with('/') || path.starts_with("//") {
+        return Err(format!("getcomposer.org gave an unexpected path: {}", path));
+    }
     let url = format!("{}{}", base, path);
     let expected = checksum_from(&get_text(&format!("{}.sha256sum", url))?)
         .ok_or_else(|| "getcomposer.org published no usable checksum".to_string())?;
